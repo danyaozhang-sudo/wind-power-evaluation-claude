@@ -35,6 +35,7 @@ residual_rate = 0.03        # 残值率
 
 # 税务参数
 vat_rate = 0.13
+om_vat_rate = 0.13            # 运维费增值税率（13% 备件为主 / 6% 服务为主）
 additional_tax_rate = 0.12
 income_tax_rate = 0.25
 
@@ -54,6 +55,8 @@ annual_gen_mwh = annual_gen_kwh / 1000
 
 weighted_price = mlt_ratio * mlt_price + spot_ratio * spot_price
 effective_price = (weighted_price - penalty) * (1 - market_fee_rate)
+# 销项税税基 = 上网电价全额（不含罚款、市场费扣减）
+vat_revenue_per_kwh = weighted_price
 
 
 def calculate(unit_inv, leverage):
@@ -73,7 +76,9 @@ def calculate(unit_inv, leverage):
     nbv_arr = np.zeros(operating_years)
 
     vat_credit_cf = 0.0
+    vat_credit_cf_unlevered = 0.0       # 无杠杆VAT留抵（不含利息进项税）
     vat_payable = np.zeros(operating_years)
+    add_tax_unlevered = np.zeros(operating_years)
 
     for i in range(operating_years):
         year = i + 1
@@ -89,12 +94,20 @@ def calculate(unit_inv, leverage):
             interest[i] = rem * interest_rate
             principal[i] = min(annual_principal_amt, rem)
         ebitda[i] = rev[i] - om[i] - ins[i]
-        # VAT
-        vat_out = rev[i] * vat_rate / (1 + vat_rate)
-        vat_credit = interest[i] * vat_rate
+        # ── VAT（有杠杆） ──
+        # 销项税 = 上网电量 × 上网电价(含税) / 1.13 × 0.13
+        vat_out = annual_gen_kwh * vat_revenue_per_kwh * vat_rate / (1 + vat_rate)
+        # 进项税 = 融资租赁租金（本金+利息） + 运维费
+        vat_credit = (principal[i] + interest[i]) * vat_rate + om[i] * om_vat_rate
         avail = vat_credit_cf + vat_credit
         vat_payable[i] = max(0, vat_out - avail)
         vat_credit_cf = max(0, avail - vat_out)
+        # ── VAT（无杠杆）—— 不含利息进项税，用于全投资FCF ──
+        vat_credit_unlevered = principal[i] * vat_rate + om[i] * om_vat_rate
+        avail_unlevered = vat_credit_cf_unlevered + vat_credit_unlevered
+        vat_payable_unlevered = max(0, vat_out - avail_unlevered)
+        vat_credit_cf_unlevered = max(0, avail_unlevered - vat_out)
+        add_tax_unlevered[i] = vat_payable_unlevered * additional_tax_rate
 
     ebit = ebitda - annual_dep
     add_tax = vat_payable * additional_tax_rate
@@ -115,12 +128,12 @@ def calculate(unit_inv, leverage):
     # 净现金流量（含利息和本金偿还）
     net_cf = ebitda - add_tax - income_tax - interest - principal
 
-    # 全投资FCF
+    # 全投资FCF（使用无杠杆附加税）
     fcf = np.zeros(operating_years + 1)
     fcf[0] = -ti
     for i in range(operating_years):
-        t = max(0, (ebit[i] - add_tax[i]) * income_tax_rate)
-        fcf[i + 1] = ebitda[i] - add_tax[i] - t
+        t = max(0, (ebit[i] - add_tax_unlevered[i]) * income_tax_rate)
+        fcf[i + 1] = ebitda[i] - add_tax_unlevered[i] - t
 
     # 资本金FCF
     eq_cf = np.zeros(operating_years + 1)
@@ -249,8 +262,9 @@ def print_profit_table(r, title, leverage):
               f"{r['income_tax'][i]/1e4:>8.2f} "
               f"{r['net_profit'][i]/1e4:>8.2f}")
     print(f"{'─'*120}")
-    print(f"  公式：营业收入=年发电量×有效电价 | 运维费=装机×单位费率(分段) | 保险费=净值×0.2%")
-    print(f"  折旧=总投资×(1-残值率)/{operating_years}年 | 利息=期初余额×{interest_rate*100:.0f}% | 增值税及附加=增值税×12%")
+    print(f"  公式：营业收入=年发电量×有效电价(已扣罚款和市场费) | 运维费=装机×单位费率(分段) | 保险费=净值×0.2%")
+    print(f"  折旧=总投资×(1-残值率)/{operating_years}年 | 利息=期初余额×{interest_rate*100:.0f}% | 增值税及附加=增值税×{additional_tax_rate*100:.0f}%")
+    print(f"  增值税=销项税(上网电价全额×{vat_rate*100:.0f}%/1.{int(vat_rate*100)}) - 进项税(租金本息+运维费)")
     print(f"  所得税=max(0,(收入-运维-保险-折旧-利息-增值税及附加)×{income_tax_rate*100:.0f}%)")
     print(f"  净利润=营业收入-运维费-保险费-折旧-利息-增值税及附加-所得税")
 
@@ -288,10 +302,11 @@ def print_cf_table(r, title, leverage):
     print(f"{'─'*120}")
     print(f"  公式：EBITDA=营业收入-运维费-保险费 | 可用于还款=EBITDA-增值税及附加-所得税")
     print(f"  当年应还本=期初本金/{loan_years}年 | 应还利息=期初余额×{interest_rate*100:.0f}% | 偿债备付率=可用于还款/应还本息")
+    print(f"  增值税=销项税(上网电价全额) - 进项税(租金本息+运维费)")
     if leverage >= 1.0:
         print(f"  净现金流量=EBITDA-增值税及附加-所得税-当年利息-当年偿还本金")
     else:
-        print(f"  股权现金流=净利润+折旧-当年偿还本金 | 净利润已含利息，折旧未付现")
+        print(f"  股权现金流=净利润+折旧-当年偿还本金 | 全投资IRR使用无杠杆附加税计算")
 
 
 if __name__ == '__main__':
