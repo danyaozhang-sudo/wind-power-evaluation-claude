@@ -18,14 +18,31 @@ capacity_mw = 60            # 装机容量 MW
 annual_hours = 1658         # 理论可利用小时数（已取低值输入）
 curtailment_rate = 0.05     # 限电率（三者取最高值输入）
 
+# ── 电价模式选择 ──
+# use_two_stage = False → 传统单一电价（兼容旧行为），所有年份用 effective_price
+# use_two_stage = True  → 二阶段电价，前N年机制期+后20-N年市场化期
+use_two_stage_pricing = False
+
 # 电价（情况一：不参与机制电价竞价 或 情况二：参与机制电价竞价）
 # 修改 mlt_price / mlt_ratio 即可切换场景
 mlt_price = 0.4336          # 电量加权均价 元/kWh（情况一=中长协/现货加权，情况二=机制电价）
-mlt_ratio = 1.0             # 情况一=0.70, 情况二=1.00
+mlt_ratio = 1.0             # 情况一=0.70, 情况二=1.00（use_two_stage=False时生效）
+                             # use_two_stage=True时忽略，改用 mechanism_ratio
 spot_price = 0.3500         # 现货交易均价 元/kWh（情况二下忽略）
 spot_ratio = 0.0            # 情况一=0.30, 情况二=0.00
 penalty = 0.015             # 两个细则考核 元/kWh
 market_fee_rate = 0.02      # 市场费用分摊
+
+# ── 二阶段电价参数（use_two_stage_pricing=True 时生效）──
+# 机制期参数
+mechanism_ratio = 0.80      # 机制电量比例（如47%、80%），不可设为1.0
+mechanism_price = 0.21      # 机制电价 元/kWh
+mechanism_years = 10        # 机制电价执行期限（年）
+# 市场化期参数（执行期满后，全部电量进入市场化）
+mkt_long_ratio = 0.60       # 中长期交易比例
+mkt_long_price = 0.215      # 中长期交易价 元/kWh
+mkt_spot_ratio = 0.40       # 现货交易比例
+mkt_spot_price = 0.19       # 现货交易价 元/kWh
 
 # 融资参数
 interest_rate = 0.04        # 融资利率
@@ -58,6 +75,17 @@ effective_price = (weighted_price - penalty) * (1 - market_fee_rate)
 # 销项税税基 = 上网电价全额（不含罚款、市场费扣减）
 vat_revenue_per_kwh = weighted_price
 
+# ── 二阶段电价预计算（use_two_stage_pricing=True时生效）──
+if use_two_stage_pricing:
+    # 机制期内加权均价与有效电价
+    mech_wavg = mechanism_ratio * mechanism_price + (1 - mechanism_ratio) * mkt_spot_price
+    mech_effective = (mech_wavg - penalty) * (1 - market_fee_rate)
+    mech_vat_base = mech_wavg
+    # 市场化期加权均价与有效电价
+    mkt_wavg = mkt_long_ratio * mkt_long_price + mkt_spot_ratio * mkt_spot_price
+    mkt_effective = (mkt_wavg - penalty) * (1 - market_fee_rate)
+    mkt_vat_base = mkt_wavg
+
 
 def calculate(unit_inv, leverage):
     """计算给定单瓦投资和杠杆率的财务指标，返回汇总指标和年度明细"""
@@ -82,7 +110,18 @@ def calculate(unit_inv, leverage):
 
     for i in range(operating_years):
         year = i + 1
-        rev[i] = annual_gen_kwh * effective_price
+        # ── 二阶段电价（use_two_stage_pricing=True时：前N年机制期，后20-N年市场化期）──
+        if use_two_stage_pricing:
+            if i < mechanism_years:
+                rev[i] = annual_gen_kwh * mech_effective
+                vat_base = mech_vat_base
+            else:
+                rev[i] = annual_gen_kwh * mkt_effective
+                vat_base = mkt_vat_base
+        else:
+            rev[i] = annual_gen_kwh * effective_price
+            vat_base = vat_revenue_per_kwh
+        
         om_rate = 0.02 if year <= 5 else (0.06 if year <= 10 else 0.08)
         om[i] = capacity_w * om_rate
         acc_dep = annual_dep * year
@@ -96,7 +135,7 @@ def calculate(unit_inv, leverage):
         ebitda[i] = rev[i] - om[i] - ins[i]
         # ── VAT（有杠杆） ──
         # 销项税 = 上网电量 × 上网电价(含税) / 1.13 × 0.13
-        vat_out = annual_gen_kwh * vat_revenue_per_kwh * vat_rate / (1 + vat_rate)
+        vat_out = annual_gen_kwh * vat_base * vat_rate / (1 + vat_rate)
         # 进项税 = 融资租赁租金（本金+利息） + 运维费
         vat_credit = (principal[i] + interest[i]) * vat_rate + om[i] * om_vat_rate
         avail = vat_credit_cf + vat_credit
@@ -317,7 +356,14 @@ if __name__ == '__main__':
     print(f"理论可利用小时数: {annual_hours}h")
     print(f"限电率: {curtailment_rate*100:.2f}%")
     print(f"年净发电量: {annual_gen_mwh:,.0f}MWh")
-    print(f"有效电价: {effective_price:.4f}元/kWh")
+    if use_two_stage_pricing:
+        print(f"【二阶段电价已启用】")
+        print(f"  机制期(前{mechanism_years}年): 机制{mechanism_ratio*100:.0f}%×{mechanism_price} + 现货{(1-mechanism_ratio)*100:.0f}%×{mkt_spot_price}")
+        print(f"    有效电价: {mech_effective:.4f}元/kWh")
+        print(f"  市场化期(后{operating_years-mechanism_years}年): 中长期{mkt_long_ratio*100:.0f}%×{mkt_long_price} + 现货{mkt_spot_ratio*100:.0f}%×{mkt_spot_price}")
+        print(f"    有效电价: {mkt_effective:.4f}元/kWh")
+    else:
+        print(f"有效电价: {effective_price:.4f}元/kWh")
     print(f"融资利率: {interest_rate*100:.0f}% | 期限: {loan_years}年 | 经营期: {operating_years}年")
     print(f"迭代范围: {search_lo}~{search_hi}元/W")
 
