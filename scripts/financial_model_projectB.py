@@ -1,0 +1,554 @@
+"""
+风电项目投资评估财务模型
+========================
+使用方法：修改下方"项目参数"区域后直接运行
+
+依赖：numpy
+安装：pip install numpy
+
+输出：投资边界 + 出售边界（共2个任务），含每年净利润表和净现金流量表
+"""
+
+import numpy as np
+
+# ============================================================
+# >>> 项目参数（在此修改） <<<
+# ============================================================
+capacity_mw = 20            # 装机容量 MW
+annual_hours = 2300          # 理论可利用小时数（已取低值输入）
+curtailment_rate = 0.08      # 限电率（三者取最高值输入）
+
+# ── 电价模式选择 ──
+# use_two_stage = False → 传统单一电价（兼容旧行为），所有年份用 effective_price
+# use_two_stage = True  → 二阶段电价，前N年机制期+后20-N年市场化期
+use_two_stage_pricing = True
+
+# 电价（情况一：不参与机制电价竞价 或 情况二：参与机制电价竞价）
+# 修改 mlt_price / mlt_ratio 即可切换场景
+mlt_price = 0.332           # 电量加权均价 元/kWh（情况一=中长协/现货加权，情况二=机制电价）
+mlt_ratio = 0.70             # 情况一=0.70, 情况二=1.00（use_two_stage=False时生效）
+                             # use_two_stage=True时忽略，改用 mechanism_ratio
+spot_price = 0.1800          # 现货交易均价 元/kWh（情况二下忽略）
+spot_ratio = 0.30            # 情况一=0.30, 情况二=0.00
+penalty = 0.015              # 两个细则考核 元/kWh
+market_fee_rate = 0.02       # 市场费用分摊
+
+# ── 二阶段电价参数（use_two_stage_pricing=True 时生效）──
+# 机制期参数
+mechanism_ratio = 0.70      # 机制电量比例（如47%、80%），不可设为1.0
+mechanism_price = 0.332     # 机制电价 元/kWh
+mechanism_years = 12        # 机制电价执行期限（年）
+# 市场化期参数（执行期满后，全部电量进入市场化）
+mkt_long_ratio = 0.60       # 中长期交易比例
+mkt_long_price = 0.25       # 中长期交易价 元/kWh
+mkt_spot_ratio = 0.40       # 现货交易比例
+mkt_spot_price = 0.18       # 现货交易价 元/kWh
+
+# 融资参数
+interest_rate = 0.04        # 融资利率
+loan_years = 18             # 融资期限
+operating_years = 20        # 经营期
+residual_rate = 0.03        # 残值率
+
+# 税务参数
+vat_rate = 0.13
+om_vat_rate = 0.13            # 运维费增值税率（13% 备件为主 / 6% 服务为主）
+additional_tax_rate = 0.12
+income_tax_rate = 0.25
+
+# 收益率参数
+wacc = 0.055                # 全投资WACC
+equity_cost = 0.07          # 资本金成本
+
+# 迭代搜索范围
+search_lo = 1.5             # 最低搜索范围 元/W
+search_hi = 8.0             # 最高搜索范围 元/W
+# ============================================================
+
+capacity_kw = capacity_mw * 1000
+capacity_w = capacity_mw * 1_000_000
+annual_gen_kwh = capacity_kw * annual_hours * (1 - curtailment_rate)
+annual_gen_mwh = annual_gen_kwh / 1000
+
+weighted_price = mlt_ratio * mlt_price + spot_ratio * spot_price
+effective_price = (weighted_price - penalty) * (1 - market_fee_rate)
+# 销项税税基 = 上网电价全额（不含罚款、市场费扣减）
+vat_revenue_per_kwh = weighted_price
+
+# ── 二阶段电价预计算（use_two_stage_pricing=True时生效）──
+if use_two_stage_pricing:
+    # 机制期内加权均价与有效电价
+    mech_wavg = mechanism_ratio * mechanism_price + (1 - mechanism_ratio) * mkt_spot_price
+    mech_effective = (mech_wavg - penalty) * (1 - market_fee_rate)
+    mech_vat_base = mech_wavg
+    # 市场化期加权均价与有效电价
+    mkt_wavg = mkt_long_ratio * mkt_long_price + mkt_spot_ratio * mkt_spot_price
+    mkt_effective = (mkt_wavg - penalty) * (1 - market_fee_rate)
+    mkt_vat_base = mkt_wavg
+
+
+def calculate(unit_inv, leverage):
+    """计算给定单瓦投资和杠杆率的财务指标，返回汇总指标和年度明细"""
+    ti = unit_inv * capacity_w
+    debt = ti * leverage
+    equity = ti - debt
+    annual_dep = ti * (1 - residual_rate) / operating_years
+    annual_principal_amt = debt / loan_years
+
+    rev = np.zeros(operating_years)
+    om = np.zeros(operating_years)
+    ins = np.zeros(operating_years)
+    ebitda = np.zeros(operating_years)
+    interest = np.zeros(operating_years)
+    principal = np.zeros(operating_years)
+    nbv_arr = np.zeros(operating_years)
+
+    vat_credit_cf = 0.0
+    vat_credit_cf_unlevered = 0.0       # 无杠杆VAT留抵（不含利息进项税）
+    vat_payable = np.zeros(operating_years)
+    add_tax_unlevered = np.zeros(operating_years)
+
+    for i in range(operating_years):
+        year = i + 1
+        # ── 二阶段电价（use_two_stage_pricing=True时：前N年机制期，后20-N年市场化期）──
+        if use_two_stage_pricing:
+            if i < mechanism_years:
+                rev[i] = annual_gen_kwh * mech_effective
+                vat_base = mech_vat_base
+            else:
+                rev[i] = annual_gen_kwh * mkt_effective
+                vat_base = mkt_vat_base
+        else:
+            rev[i] = annual_gen_kwh * effective_price
+            vat_base = vat_revenue_per_kwh
+        
+        om_rate = 0.02 if year <= 5 else (0.06 if year <= 10 else 0.08)
+        om[i] = capacity_w * om_rate
+        acc_dep = annual_dep * year
+        nbv = max(0, ti - acc_dep)
+        nbv_arr[i] = nbv
+        ins[i] = nbv * 0.002
+        if year <= loan_years:
+            rem = max(0, debt - annual_principal_amt * (year - 1))
+            interest[i] = rem * interest_rate
+            principal[i] = min(annual_principal_amt, rem)
+        ebitda[i] = rev[i] - om[i] - ins[i]
+        # ── VAT（有杠杆） ──
+        # 销项税 = 上网电量 × 上网电价(含税) / 1.13 × 0.13
+        vat_out = annual_gen_kwh * vat_base * vat_rate / (1 + vat_rate)
+        # 进项税 = 融资租赁租金（本金+利息） + 运维费
+        vat_credit = (principal[i] + interest[i]) * vat_rate + om[i] * om_vat_rate
+        avail = vat_credit_cf + vat_credit
+        vat_payable[i] = max(0, vat_out - avail)
+        vat_credit_cf = max(0, avail - vat_out)
+        # ── VAT（无杠杆）—— 不含利息进项税，用于全投资FCF ──
+        vat_credit_unlevered = principal[i] * vat_rate + om[i] * om_vat_rate
+        avail_unlevered = vat_credit_cf_unlevered + vat_credit_unlevered
+        vat_payable_unlevered = max(0, vat_out - avail_unlevered)
+        vat_credit_cf_unlevered = max(0, avail_unlevered - vat_out)
+        add_tax_unlevered[i] = vat_payable_unlevered * additional_tax_rate
+
+    ebit = ebitda - annual_dep
+    add_tax = vat_payable * additional_tax_rate
+    ebt = ebit - interest - add_tax
+    income_tax = np.array([max(0, e) * income_tax_rate for e in ebt])
+    net_profit = ebt - income_tax
+
+    # DSCR
+    dscr = np.zeros(operating_years)
+    for i in range(operating_years):
+        total_ds = principal[i] + interest[i]
+        if total_ds > 0:
+            avail_ds = ebitda[i] - income_tax[i] - add_tax[i]
+            dscr[i] = avail_ds / total_ds
+        else:
+            dscr[i] = float('inf')
+
+    # 净现金流量（含利息和本金偿还）
+    net_cf = ebitda - add_tax - income_tax - interest - principal
+
+    # 全投资FCF（使用无杠杆附加税）
+    fcf = np.zeros(operating_years + 1)
+    fcf[0] = -ti
+    for i in range(operating_years):
+        t = max(0, (ebit[i] - add_tax_unlevered[i]) * income_tax_rate)
+        fcf[i + 1] = ebitda[i] - add_tax_unlevered[i] - t
+
+    # 资本金FCF
+    eq_cf = np.zeros(operating_years + 1)
+    eq_cf[0] = -equity
+    for i in range(operating_years):
+        if leverage < 1.0:
+            # 股权现金流 = 净利润 + 折旧 - 当年偿还本金
+            eq_cf[i + 1] = net_profit[i] + annual_dep - principal[i]
+
+    def calc_irr(cf):
+        try:
+            r = 0.1
+            for _ in range(1000):
+                npv = sum(c / (1 + r) ** t for t, c in enumerate(cf))
+                dnpv = sum(-t * c / (1 + r) ** (t + 1) for t, c in enumerate(cf))
+                if abs(dnpv) < 1e-12:
+                    break
+                r_new = r - npv / dnpv
+                if abs(r_new - r) < 1e-8:
+                    r = r_new
+                    break
+                r = r_new
+            return r * 100
+        except:
+            return None
+
+    full_irr = calc_irr(fcf)
+    equity_irr = calc_irr(eq_cf) if leverage < 1.0 else None
+
+    # LCOE = (CapEx + Σ(OpEx_t+Tax_t)/(1+WACC)^t) / Σ(Gen_t/(1+WACC)^t)
+    total_cost_pv = ti  # 初始投资（t=0，不折现）
+    total_gen_pv = 0
+    for i in range(operating_years):
+        yr_cost = om[i] + ins[i] + income_tax[i] + add_tax[i]
+        total_cost_pv += yr_cost / (1 + wacc) ** (i + 1)
+        total_gen_pv += annual_gen_kwh / (1 + wacc) ** (i + 1)
+    lcoe = total_cost_pv / total_gen_pv if total_gen_pv > 0 else 0
+
+    min_dscr = min(dscr[:loan_years])
+
+    # 用于还款的现金流
+    avail_for_ds = ebitda - add_tax - income_tax
+
+    return {
+        # 汇总指标
+        'unit_inv': unit_inv,
+        'ti': ti,
+        'debt': debt,
+        'equity': equity,
+        'min_dscr': min_dscr,
+        'full_irr': full_irr,
+        'equity_irr': equity_irr,
+        'lcoe': lcoe,
+        'avg_ncf': np.mean(net_cf),
+        'avg_np': np.mean(net_profit),
+        'annual_dep': annual_dep,
+        'annual_principal_amt': annual_principal_amt,
+        # 年度明细数组
+        'rev': rev,
+        'om': om,
+        'ins': ins,
+        'ebitda': ebitda,
+        'interest': interest,
+        'principal': principal,
+        'add_tax': add_tax,
+        'income_tax': income_tax,
+        'net_profit': net_profit,
+        'dscr': dscr,
+        'net_cf': net_cf,
+        'avail_for_ds': avail_for_ds,
+        'nbv': nbv_arr,
+        'fcf': fcf,
+        'eq_cf': eq_cf,
+    }
+
+
+def bin_search_dscr(target, leverage, lo, hi):
+    """二分搜索：最小DSCR ≥ target 下的最高单瓦投资"""
+    best = lo
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        r = calculate(mid, leverage)
+        if r['min_dscr'] >= target:
+            best = mid
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 0.0001:
+            break
+    return round(best, 4)
+
+
+def bin_search_dual(full_irr_tgt, eq_irr_tgt, lo, hi):
+    """二分搜索：全投资IRR≥目标 且 资本金IRR≥目标 下的最高单瓦投资（80%融资）"""
+    best = lo
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        r = calculate(mid, 0.8)
+        ok = r['full_irr'] is not None and r['full_irr'] >= full_irr_tgt
+        ok = ok and r['equity_irr'] is not None and r['equity_irr'] >= eq_irr_tgt
+        if ok:
+            best = mid
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 0.0001:
+            break
+    return round(best, 4)
+
+
+def print_profit_table(r, title, leverage):
+    """打印每年净利润表"""
+    print(f"\n{'─'*120}")
+    print(f"  {title} — 每年净利润表（单位：万元）")
+    print(f"{'─'*120}")
+    header = f"{'年份':>6} {'营业收入':>10} {'运维费':>8} {'保险费':>8} {'折旧':>8} {'利息':>8} {'增值税及附加':>10} {'所得税':>8} {'净利润':>8}"
+    print(header)
+    print(f"{'─'*120}")
+    for i in range(operating_years):
+        y = i + 1
+        print(f"{y:>6} "
+              f"{r['rev'][i]/1e4:>10.2f} "
+              f"{r['om'][i]/1e4:>8.2f} "
+              f"{r['ins'][i]/1e4:>8.2f} "
+              f"{r['annual_dep']/1e4:>8.2f} "
+              f"{r['interest'][i]/1e4:>8.2f} "
+              f"{r['add_tax'][i]/1e4:>10.2f} "
+              f"{r['income_tax'][i]/1e4:>8.2f} "
+              f"{r['net_profit'][i]/1e4:>8.2f}")
+    print(f"{'─'*120}")
+    print(f"  公式：营业收入=年发电量×有效电价(已扣罚款和市场费) | 运维费=装机×单位费率(分段) | 保险费=净值×0.2%")
+    print(f"  折旧=总投资×(1-残值率)/{operating_years}年 | 利息=期初余额×{interest_rate*100:.0f}% | 增值税及附加=增值税×{additional_tax_rate*100:.0f}%")
+    print(f"  增值税=销项税(上网电价全额×{vat_rate*100:.0f}%/1.{int(vat_rate*100)}) - 进项税(租金本息+运维费)")
+    print(f"  所得税=max(0,(收入-运维-保险-折旧-利息-增值税及附加)×{income_tax_rate*100:.0f}%)")
+    print(f"  净利润=营业收入-运维费-保险费-折旧-利息-增值税及附加-所得税")
+
+
+def print_cf_table(r, title, leverage):
+    """打印每年净现金流量表"""
+    print(f"\n{'─'*120}")
+    print(f"  {title} — 每年净现金流量表（单位：万元）")
+    print(f"{'─'*120}")
+    if leverage >= 1.0:
+        header = f"{'年份':>6} {'EBITDA':>10} {'增值税及附加':>10} {'所得税':>8} {'可用于还款':>10} {'应还本金':>10} {'应还利息':>10} {'应还本息':>10} {'偿债备付率':>8} {'净现金流':>10}"
+        print(header)
+    else:
+        header = f"{'年份':>6} {'EBITDA':>10} {'增值税及附加':>10} {'所得税':>8} {'可用于还款':>10} {'应还本金':>10} {'应还利息':>10} {'应还本息':>10} {'偿债备付率':>8} {'股权现金流':>10}"
+        print(header)
+    print(f"{'─'*120}")
+    for i in range(operating_years):
+        y = i + 1
+        ds = r['principal'][i] + r['interest'][i]
+        dscr_val = f"{r['dscr'][i]:>8.2f}" if r['dscr'][i] != float('inf') else f"{'∞':>8}"
+        if leverage >= 1.0:
+            cf_val = r['net_cf'][i]
+        else:
+            cf_val = r['net_profit'][i] + r['annual_dep'] - r['principal'][i]
+        print(f"{y:>6} "
+              f"{r['ebitda'][i]/1e4:>10.2f} "
+              f"{r['add_tax'][i]/1e4:>10.2f} "
+              f"{r['income_tax'][i]/1e4:>8.2f} "
+              f"{r['avail_for_ds'][i]/1e4:>10.2f} "
+              f"{r['principal'][i]/1e4:>10.2f} "
+              f"{r['interest'][i]/1e4:>10.2f} "
+              f"{ds/1e4:>10.2f} "
+              f"{dscr_val} "
+              f"{cf_val/1e4:>10.2f}")
+    print(f"{'─'*120}")
+    print(f"  公式：EBITDA=营业收入-运维费-保险费 | 可用于还款=EBITDA-增值税及附加-所得税")
+    print(f"  当年应还本=期初本金/{loan_years}年 | 应还利息=期初余额×{interest_rate*100:.0f}% | 偿债备付率=可用于还款/应还本息")
+    print(f"  增值税=销项税(上网电价全额) - 进项税(租金本息+运维费)")
+    if leverage >= 1.0:
+        print(f"  净现金流量=EBITDA-增值税及附加-所得税-当年利息-当年偿还本金")
+    else:
+        print(f"  股权现金流=净利润+折旧-当年偿还本金 | 全投资IRR使用无杠杆附加税计算")
+
+
+def print_boundary_conditions():
+    """打印模型边界条件表（第六节头部）"""
+    print(f"\n{'='*80}")
+    print(f"  六、财务测算结果")
+    print(f"{'='*80}")
+    print(f"\n  【6.1 模型边界条件】")
+    print(f"  {'─'*50}")
+    print(f"  {'参数':<28} {'数值':>16}")
+    print(f"  {'─'*50}")
+    print(f"  {'装机容量':<28} {capacity_mw:>16} MW")
+    print(f"  {'理论利用小时数':<28} {annual_hours:>16} h")
+    print(f"  {'限电率':<28} {curtailment_rate*100:>13.2f} %")
+    print(f"  {'年净发电量':<28} {annual_gen_mwh:>16,.0f} MWh")
+    if use_two_stage_pricing:
+        print(f"  {'有效电价(机制期)':<28} {mech_effective:>16.4f} 元/kWh")
+        print(f"  {'有效电价(市场化期)':<28} {mkt_effective:>16.4f} 元/kWh")
+    else:
+        print(f"  {'有效电价':<28} {effective_price:>16.4f} 元/kWh")
+    print(f"  {'经营期':<28} {operating_years:>16} 年")
+    print(f"  {'融资利率':<28} {interest_rate*100:>13.0f} %")
+    print(f"  {'融资期限':<28} {loan_years:>16} 年")
+    print(f"  {'折旧年限':<28} {operating_years:>16} 年")
+    print(f"  {'残值率':<28} {residual_rate*100:>13.0f} %")
+    print(f"  {'运维费第1段(1-5年)':<28} {0.02:>16.4f} 元/W·年")
+    print(f"  {'运维费第2段(6-10年)':<28} {0.06:>16.4f} 元/W·年")
+    print(f"  {'运维费第3段(11-20年)':<28} {0.08:>16.4f} 元/W·年")
+    print(f"  {'保险费率':<28} {'净值×0.2%':>16}")
+    print(f"  {'增值税率':<28} {vat_rate*100:>13.0f} %")
+    print(f"  {'所得税率':<28} {income_tax_rate*100:>13.0f} %")
+    print(f"  {'─'*50}")
+
+
+def print_appendix_tables(r1, r4):
+    """打印第八节：财务指标附表（4张表）"""
+    print(f"\n{'='*80}")
+    print(f"  八、财务指标附表")
+    print(f"{'='*80}")
+
+    # 表1：资本金投资利润表（出售边界·80%融资）
+    print(f"\n{'─'*120}")
+    print(f"  第八项·表1：资本金投资利润表（出售边界·80%融资）（单位：万元）")
+    print(f"{'─'*120}")
+    header = f"{'年份':>6} {'营业收入':>10} {'运维费':>8} {'保险费':>8} {'折旧':>8} {'利息':>8} {'增值税及附加':>10} {'所得税':>8} {'净利润':>8}"
+    print(header)
+    print(f"{'─'*120}")
+    for i in range(operating_years):
+        y = i + 1
+        print(f"{y:>6} "
+              f"{r4['rev'][i]/1e4:>10.2f} "
+              f"{r4['om'][i]/1e4:>8.2f} "
+              f"{r4['ins'][i]/1e4:>8.2f} "
+              f"{r4['annual_dep']/1e4:>8.2f} "
+              f"{r4['interest'][i]/1e4:>8.2f} "
+              f"{r4['add_tax'][i]/1e4:>10.2f} "
+              f"{r4['income_tax'][i]/1e4:>8.2f} "
+              f"{r4['net_profit'][i]/1e4:>8.2f}")
+    print(f"{'─'*120}")
+    print(f"  公式：营业收入=年发电量×有效电价 | 运维费=装机×单位费率(分段) | 保险费=净值×0.2%")
+    print(f"  折旧=总投资×(1-残值率)/{operating_years}年 | 利息=期初余额×{interest_rate*100:.0f}%")
+    print(f"  所得税=max(0,(收入-运维-保险-折旧-利息-增值税及附加)×{income_tax_rate*100:.0f}%)")
+    print(f"  净利润=营业收入-运维费-保险费-折旧-利息-增值税及附加-所得税")
+
+    # 表2：全投资净现金流表
+    print(f"\n{'─'*120}")
+    print(f"  第八项·表2：全投资净现金流表（出售边界口径）（单位：万元）")
+    print(f"  说明：基于出售边界计算，全投资FCF使用无杠杆附加税（剔除利息税盾）")
+    print(f"{'─'*120}")
+    header = f"{'年份':>6} {'全投资FCF':>14}"
+    print(header)
+    print(f"{'─'*120}")
+    print(f"{' 0':>6} {r4['fcf'][0]/1e4:>14.2f}")
+    for i in range(operating_years):
+        print(f"{i+1:>6} {r4['fcf'][i+1]/1e4:>14.2f}")
+    print(f"{'─'*120}")
+    print(f"  全投资IRR: {r4['full_irr']:.2f}%")
+    print(f"{'─'*120}")
+
+    # 表3：资本金投资现金流表（出售边界·80%融资）
+    print(f"\n{'─'*120}")
+    print(f"  第八项·表3：资本金投资现金流表（出售边界·80%融资）（单位：万元）")
+    print(f"  说明：股权现金流 = 净利润 + 折旧 - 当年偿还本金")
+    print(f"{'─'*120}")
+    header = f"{'年份':>6} {'净利润':>10} {'折旧':>10} {'偿还本金':>10} {'股权现金流':>12}"
+    print(header)
+    print(f"{'─'*120}")
+    print(f"{' 0':>6} {'':>10} {'':>10} {'':>10} {r4['eq_cf'][0]/1e4:>12.2f}")
+    for i in range(operating_years):
+        ecf = r4['net_profit'][i] + r4['annual_dep'] - r4['principal'][i]
+        print(f"{i+1:>6} "
+              f"{r4['net_profit'][i]/1e4:>10.2f} "
+              f"{r4['annual_dep']/1e4:>10.2f} "
+              f"{r4['principal'][i]/1e4:>10.2f} "
+              f"{ecf/1e4:>12.2f}")
+    print(f"{'─'*120}")
+    print(f"  税后资本金IRR: {r4['equity_irr']:.2f}%")
+    print(f"{'─'*120}")
+
+    # 表4：偿债覆盖计算表（投资边界·100%融资）
+    print(f"\n{'─'*120}")
+    print(f"  第八项·表4：偿债覆盖计算表（投资边界·100%融资）（单位：万元）")
+    print(f"  说明：DSCR = 可用于还款的净现金流 / 当年应还本息")
+    print(f"{'─'*120}")
+    header = f"{'年份':>6} {'EBITDA':>10} {'增值税及附加':>10} {'所得税':>8} {'可用于还款':>10} {'应还本金':>10} {'应还利息':>10} {'应还本息':>10} {'DSCR':>8}"
+    print(header)
+    print(f"{'─'*120}")
+    for i in range(operating_years):
+        y = i + 1
+        ds = r1['principal'][i] + r1['interest'][i]
+        dscr_val = f"{r1['dscr'][i]:>8.2f}" if r1['dscr'][i] != float('inf') else f"{'∞':>8}"
+        print(f"{y:>6} "
+              f"{r1['ebitda'][i]/1e4:>10.2f} "
+              f"{r1['add_tax'][i]/1e4:>10.2f} "
+              f"{r1['income_tax'][i]/1e4:>8.2f} "
+              f"{r1['avail_for_ds'][i]/1e4:>10.2f} "
+              f"{r1['principal'][i]/1e4:>10.2f} "
+              f"{r1['interest'][i]/1e4:>10.2f} "
+              f"{ds/1e4:>10.2f} "
+              f"{dscr_val}")
+    print(f"{'─'*120}")
+    print(f"  最小DSCR: {r1['min_dscr']:.4f}")
+    print(f"  公式：可用还款=EBITDA-增值税及附加-所得税 | DSCR=可用还款/应还本息")
+    print(f"{'─'*120}")
+
+
+if __name__ == '__main__':
+    print(f"{'='*80}")
+    print(f"风电项目投资评估 —— 投资边界 & 出售边界")
+    print(f"{'='*80}")
+    print(f"装机容量: {capacity_mw}MW")
+    print(f"理论可利用小时数: {annual_hours}h")
+    print(f"限电率: {curtailment_rate*100:.2f}%")
+    print(f"年净发电量: {annual_gen_mwh:,.0f}MWh")
+    if use_two_stage_pricing:
+        print(f"【二阶段电价已启用】")
+        print(f"  机制期(前{mechanism_years}年): 机制{mechanism_ratio*100:.0f}%×{mechanism_price} + 现货{(1-mechanism_ratio)*100:.0f}%×{mkt_spot_price}")
+        print(f"    有效电价: {mech_effective:.4f}元/kWh")
+        print(f"  市场化期(后{operating_years-mechanism_years}年): 中长期{mkt_long_ratio*100:.0f}%×{mkt_long_price} + 现货{mkt_spot_ratio*100:.0f}%×{mkt_spot_price}")
+        print(f"    有效电价: {mkt_effective:.4f}元/kWh")
+    else:
+        print(f"有效电价: {effective_price:.4f}元/kWh")
+    print(f"融资利率: {interest_rate*100:.0f}% | 期限: {loan_years}年 | 经营期: {operating_years}年")
+    print(f"迭代范围: {search_lo}~{search_hi}元/W")
+
+    print_boundary_conditions()
+
+    # ── 任务1：投资边界 ──
+    print(f"\n{'='*80}")
+    print(f"  任务1：投资边界（100%融资，最小DSCR≥1.2）")
+    print(f"{'='*80}")
+
+    t1 = bin_search_dscr(1.2, 1.0, search_lo, search_hi)
+    r1 = calculate(t1, 1.0)
+
+    print(f"\n  ▶ 最高单瓦投资: {r1['unit_inv']:.4f}元/W")
+    print(f"  ▶ 总投资: {r1['ti']/1e8:.4f}亿元")
+    print(f"  ▶ 最小DSCR: {r1['min_dscr']:.4f}")
+    print(f"  ▶ 全投资IRR: {r1['full_irr']:.2f}%")
+    print(f"  ▶ LCOE: {r1['lcoe']:.4f}元/kWh")
+    print(f"  ▶ 年均净现金流量: {r1['avg_ncf']/1e4:.2f}万元")
+    print(f"  ▶ 年均净利润: {r1['avg_np']/1e4:.2f}万元")
+
+    print_profit_table(r1, "任务1·投资边界", 1.0)
+    print_cf_table(r1, "任务1·投资边界", 1.0)
+
+    # ── 任务4：出售边界 ──
+    print(f"\n{'='*80}")
+    print(f"  任务4：出售边界（80%融资，全投资IRR≥6% 且 资本金IRR≥8%）")
+    print(f"{'='*80}")
+
+    t4 = bin_search_dual(6.0, 8.0, search_lo, search_hi)
+    r4 = calculate(t4, 0.8)
+
+    print(f"\n  ▶ 目标单瓦投资: {r4['unit_inv']:.4f}元/W")
+    print(f"  ▶ 总投资: {r4['ti']/1e8:.4f}亿元")
+    print(f"  ▶ 全投资IRR: {r4['full_irr']:.2f}%")
+    print(f"  ▶ 税后资本金IRR: {r4['equity_irr']:.2f}%")
+    print(f"  ▶ LCOE: {r4['lcoe']:.4f}元/kWh")
+    print(f"  ▶ 年均净现金流量: {r4['avg_ncf']/1e4:.2f}万元")
+    print(f"  ▶ 年均净利润: {r4['avg_np']/1e4:.2f}万元")
+
+    print_profit_table(r4, "任务4·出售边界", 0.8)
+    print_cf_table(r4, "任务4·出售边界", 0.8)
+
+    # ── 第八节：财务指标附表 ──
+    print_appendix_tables(r1, r4)
+
+    # ── 对比总结 ──
+    print(f"\n{'='*80}")
+    print(f"  投资边界 vs 出售边界 对比")
+    print(f"{'='*80}")
+    print(f"  {'指标':<24} {'投资边界':>14} {'出售边界':>14}")
+    print(f"  {'─'*52}")
+    print(f"  {'融资结构':<24} {'100%融资':>14} {'80%融资+20%资本金':>14}")
+    print(f"  {'约束条件':<24} {'DSCR≥1.2':>14} {'全投资IRR≥6% +':>14}")
+    print(f"  {'':<24} {'':>14} {'资本金IRR≥8%':>14}")
+    print(f"  {'单瓦投资(元/W)':<24} {r1['unit_inv']:>14.4f} {r4['unit_inv']:>14.4f}")
+    print(f"  {'总投资(亿元)':<24} {r1['ti']/1e8:>14.4f} {r4['ti']/1e8:>14.4f}")
+    print(f"  {'全投资IRR':<24} {r1['full_irr']:>13.2f}% {r4['full_irr']:>13.2f}%")
+    print(f"  {'资本金IRR':<24} {'─':>14} {r4['equity_irr']:>13.2f}%")
+    print(f"  {'最小DSCR':<24} {r1['min_dscr']:>14.4f} {r4['min_dscr']:>14.4f}")
+    print(f"  {'LCOE(元/kWh)':<24} {r1['lcoe']:>14.4f} {r4['lcoe']:>14.4f}")
+    print(f"  {'年均净利润(万元)':<24} {r1['avg_np']/1e4:>14.2f} {r4['avg_np']/1e4:>14.2f}")

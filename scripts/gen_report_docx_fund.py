@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-"""风电项目评估报告 Word 生成脚本（详细版）
+"""风电项目评估报告 Word 生成脚本（选项二·基金用途精简版）
 使用方法：修改 REPORT_DATA 字典后直接运行
-依赖：python-docx (pip install python-docx --break-system-packages)
-Logo：~/.hermes/skills/openclaw-imports/wind-power-analysis/assets/jianeng_logo_header.png
+依赖：python-docx
+Logo：~/.openclaw/workspace/skills/wind-power-analysis/assets/jianeng_logo_header.png
 
-版本匹配：report_template.md（风电详细结构）
+结构：项目概况 → 必选A → 财务测算结果(3.1~3.3) → 财务指标附表(4表) → 免责声明
+对比选项一（详细版）：跳过必选B/C/D、投资决策建议，任务改称基金收购/出售
 """
-import os, sys, io
+import os, sys
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn, nsdecls
 from docx.oxml import parse_xml
 
-# ───────────────────────────────────────────────
-# >>> 配置（每个项目修改此处）<<<
-# ───────────────────────────────────────────────
 LOGO = os.path.expanduser("~/.openclaw/workspace/skills/wind-power-analysis/assets/jianeng_logo_header.png")
 REPORT_DATA = {
-    # ── 项目基本信息 ──
     "project_name": "天津蓟州西龙虎峪镇",
     "province": "天津",
     "city": "蓟州区西龙虎峪镇",
@@ -26,25 +23,20 @@ REPORT_DATA = {
     "capacity_mw": 60,
     "annual_hours": 2000,
     "curtailment_rate": 0.05,
-    "curtailment_source": "厂商实测数据（2026年）",
-    "curtailment_detail": "天津位于负荷中心，5%偏保守（含厂用电）",
-    "project_type": "增量风电（不参与机制电价竞价，全量中长期+绿电）",
-    "version": "v4",
+    "project_type": "增量风电（不参与机制电价竞价，全量中长期+绿电交易）",
+    "version": "v5",
     "report_date": "2026-05-22",
 
-    # ── 电价参数 ──
-    "mechanism_price": 0.32,        # 竞价上限（含税）
-    "mechanism_cap": 0.32,          # 竞价上限
-    "mechanism_ratio": 0,           # 不参与
-    "mechanism_years": 0,           # 不适用
-    "base_hours": 0,                # 不适用
-    "mkt_long_price": 0.364,        # 中长协+绿电加权价
-    "mkt_spot_price": 0.0,          # 天津无现货
-    "green_premium": 0.004,         # 绿证溢价
-    "penalty": 0.015,               # 两细则考核
-    "market_fee_rate": 0.02,        # 市场费用分摊
+    "mechanism_price": 0.32,
+    "mechanism_cap": 0.32,
+    "mechanism_ratio": 0,
+    "mechanism_years": 0,
+    "mkt_long_price": 0.364,
+    "mkt_spot_price": 0.0,
+    "green_premium": 0.004,
+    "penalty": 0.015,
+    "market_fee_rate": 0.02,
 
-    # ── 政策溯源10项（[必选A]）──
     "policy": [
         ("燃煤基准价", "0.3655 元/kWh", "发改价格〔2023〕526号", ""),
         ("机制电价竞价上限", "0.32 元/kWh", "天津市实施方案", ""),
@@ -58,40 +50,7 @@ REPORT_DATA = {
         ("消纳/限电", "5%含厂用电", "天津负荷中心偏保守", ""),
     ],
 
-    # ── 计算过程参数 ──
-    "calc_method": "单一电价法（天津无现货不参与机制竞价）",
-    "calc_method_note": "天津无现货市场，不参与机制电价竞价，全电量中长期+绿电，单一电价20年不变",
-    "calc_mechanism_before": "N/A",
-    "calc_mechanism_after": "N/A",
-    "calc_market_before": "0.364 元/kWh（绿电0.36+绿证0.004）",
-    "calc_market_after": "0.3420 元/kWh = (0.364-0.015)×0.98",
-
-    # ── 13行多口径表（[必选C]）──
-    "pricing_rows": [
-        ("①", "燃煤基准价（含税）", 0.3655, "锚点", "❌"),
-        ("②", "机制电价竞价上限", 0.320, "不参与", "❌"),
-        ("③", "绿电含电能量价", 0.360, "风电长期绿电价", "✅"),
-        ("④", "绿证溢价", 0.004, "4元/个", "✅"),
-        ("⑤", "中长协+绿电加权（扣费前）", 0.364, "中间值", "❌"),
-        ("⑥", "两细则考核费", -0.015, "华北规则", "✅"),
-        ("⑦", "市场费分摊", -0.0073, "2%", "✅"),
-        ("⑧", "两细则后电价", 0.349, "中间值", "❌"),
-        ("⑨", "有效电价（扣费后含税）", 0.3420, "模型输入", "✅"),
-        ("⑩", "有效电价（不含税）", 0.3027, "⑨÷1.13", "✅"),
-        ("⑪", "机制电价中标价参考", 0.320, "未参与", "❌"),
-        ("⑫", "差额电量电价", 0.000, "N/A", "N/A"),
-        ("⑬", "全生命周期加权均价", 0.3420, "20年不变", "❌"),
-    ],
-
-    # ── 敏感性分析（[必选D]）──
-    "sensitivity": {
-        "conservative": {"basis": "有效电价0.33元", "spot": 0.33, "eff_price": 0.330, "t1": 4.78, "t4": 5.60},
-        "neutral": {"basis": "有效电价0.342元", "spot": 0.34, "eff_price": 0.3420, "t1": 5.01, "t4": 5.85},
-        "optimistic": {"basis": "有效电价0.36元", "spot": 0.36, "eff_price": 0.360, "t1": 5.28, "t4": 6.16},
-    },
-
-    # ── 模型边界条件 ──
-    "interest_rate": 0.04,
+    "interest_rate": 0.035,
     "loan_years": 18,
     "operating_years": 20,
     "residual_rate": 0.03,
@@ -103,25 +62,18 @@ REPORT_DATA = {
     "ins_rate": "净值×0.2%",
     "effective_price": 0.3420,
 
-    # ── 测算结果 ──
-    "t1_limit": 5.01,
-    "t4_limit": 5.85,
-    "t1_irr": 7.78,
+    "t1_limit": 5.50,
+    "t4_limit": 5.8517,
+    "t1_irr": 6.69,
     "t4_irr": 6.00,
-    "t4_equity_irr": 13.14,
-    "t1_dscr": 1.2000,
-    "t4_dscr": 1.30,
-    "t1_lcoe": 0.2836,
-    "t4_lcoe": 0.3167,
+    "t4_equity_irr": 14.15,
+    "t1_equity_irr": 16.61,
+    "t1_dscr": 1.4242,
+    "t4_dscr": 1.35,
+    "t1_lcoe": 0.3060,
+    "t4_lcoe": 0.3185,
     "payback_period": 6.1,
 
-    # ── 投资决策建议 ──
-    "rec_sell_limit": 5.85,
-    "rec_buy_limit": 5.01,
-    "risk_notes": "①投资协议2026年6月到期②环评批复进度③中长协定价波动④利率4%",
-    "rating": "★★★★☆",
-
-    # ── 第八节·财务附表数据（关键年份）──
     "profit_table": [
         [1, 3899.03, 120.00, 66.81, 1702.84, 1123.53, 13.54, 218.07, 654.22],
         [5, 3899.03, 120.00, 53.19, 1702.84, 873.85, 17.44, 282.92, 848.77],
@@ -156,7 +108,6 @@ REPORT_DATA = {
 }
 
 TODAY = "20260522"
-# ───────────────────────────────────────────────
 
 COLOR_DB = RGBColor(0x1B, 0x3A, 0x5C)
 
@@ -172,24 +123,12 @@ def h2(doc, text):
         r.font.color.rgb = COLOR_DB; r.font.name = '黑体'
         r._element.rPr.rFonts.set(qn('w:eastAsia'), '黑体'); r.font.size = Pt(13)
 
-def h3(doc, text):
-    h = doc.add_heading(text, level=3)
-    for r in h.runs:
-        r.font.color.rgb = COLOR_DB; r.font.name = '黑体'
-        r._element.rPr.rFonts.set(qn('w:eastAsia'), '黑体'); r.font.size = Pt(11)
-
 def para(doc, text, bold=False, sz=11, align=None):
     p = doc.add_paragraph()
     if align: p.alignment = align
     r = p.add_run(text)
     r.font.name = '仿宋'; r._element.rPr.rFonts.set(qn('w:eastAsia'), '仿宋')
     r.font.size = Pt(sz); r.bold = bold
-
-def code_para(doc, text, sz=9):
-    """等宽字体段落，用于展示计算过程"""
-    p = doc.add_paragraph()
-    r = p.add_run(text)
-    r.font.name = 'Courier New'; r.font.size = Pt(sz)
 
 def table(doc, headers, rows):
     t = doc.add_table(rows=1+len(rows), cols=len(headers))
@@ -214,7 +153,6 @@ def table(doc, headers, rows):
                     r._element.rPr.rFonts.set(qn('w:eastAsia'), '仿宋')
 
 def add_header(doc, logo_path):
-    """江能 Logo 页眉，2cm 宽居右"""
     for s in doc.sections:
         hdr = s.header
         hdr.is_linked_to_previous = False
@@ -223,22 +161,19 @@ def add_header(doc, logo_path):
         run = p.add_run()
         run.add_picture(logo_path, width=Cm(2))
 
-# add_watermark removed — caused docx "locked for editing" in Word
-# (lxml anchor manipulation corrupted document structure)
-def add_disclaimer(doc):
-    """免责声明 — 必须包含"""
+def add_disclaimer(doc, R):
     h1(doc, "免责声明")
     text = (
         "本报告由江能能源开发的AI辅助评估系统生成，并经过人工校核，不构成投资建议。"
         "报告中所引用的电力市场数据（机制电价、中长期交易电价、现货电价、限电率、利用小时数等）均来自公开渠道，"
         "部分电价参数在缺乏直接交易数据的情况下采用保守假设推算，可能与实际成交价格存在偏差。"
         "实际项目投资决策应结合以下因素综合判断：\n\n"
-        "① 场址实测测风数据（至少一个完整年度）；"
+        "① 场址实测测风数据（至少一个完整年度或有风机厂背书）；"
         "② 电网接入批复及送出工程条件；"
         "③ EPC 招标实际报价；"
         "④ 项目所在地最新的机制电价竞价结果；"
         "⑤ 所在省电力交易中心公布的全年现货与中长期交易结算数据。\n\n"
-        "本报告中的财务模型基于特定假设（融资利率 4%、经营期 20 年、等额本金还款等），"
+        f"本报告中的财务模型基于特定假设（融资利率 {R['interest_rate']*100:.1f}%、经营期 20 年、等额本金还款等），"
         "不同融资结构、利率环境及政策变化可能导致测算结果显著偏离。"
         "报告中的'投资边界'和'出售边界'为理论测算阈值，不代表项目实际可实现的交易价格或融资条件。\n\n"
         "江能能源及报告编制方不对因使用本报告而产生的任何直接或间接损失承担责任。"
@@ -247,7 +182,6 @@ def add_disclaimer(doc):
     para(doc, text, sz=9)
 
 def build(doc, R):
-    """构建详细报告正文（匹配 report_template.md 风电详细版）"""
     gen_mwh = R['capacity_mw'] * R['annual_hours'] * (1 - R['curtailment_rate'])
 
     # ═══════════ 标题 ═══════════
@@ -257,7 +191,7 @@ def build(doc, R):
     r.font.name = '黑体'; r._element.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
 
     para(doc,
-         f"版本：{R['version']} | 日期：{TODAY} | 分析师：江能研究院（Claude Opus辅助）"
+         f"版本：{R['version']} | 日期：{R['report_date']} | 分析师：江能能源投资研究院(Claude Opus+)"
          f"\n项目类型：{R['project_type']}",
          sz=9, align=WD_ALIGN_PARAGRAPH.CENTER)
 
@@ -269,6 +203,9 @@ def build(doc, R):
         ["理论利用小时", f"{R['annual_hours']} h"],
         ["限电率", f"{R['curtailment_rate']*100:.1f}%"],
         ["年净发电量", f"{gen_mwh:,.0f} MWh"],
+        ["开工时间", "2026年3月"],
+        ["预计并网", "2027年3月"],
+        ["投资方", "皓景雅岚"],
     ])
 
     # ═══════════ 二、[必选A] 政策溯源 ═══════════
@@ -277,51 +214,10 @@ def build(doc, R):
     policy_rows = [[i+1, item[0], item[1], item[2], item[3]] for i, item in enumerate(R['policy'])]
     table(doc, policy_headers, policy_rows)
 
-    # ═══════════ 三、[必选B] 计算过程 ═══════════
-    h1(doc, "三、[必选B] 电价确认的计算过程")
+    # ═══════════ 三、财务测算结果 ═══════════
+    h1(doc, "三、财务测算结果")
 
-    h2(doc, "第一步：原始参数确认")
-    table(doc, ["参数", "数值", "来源"], [
-        ["机制电价竞价上限", f"{R['mechanism_cap']}", R['policy'][0][2]],
-        ["实际中标出清价", f"{R['mechanism_price']}", R['policy'][1][2]],
-        ["机制电量比例", f"{R['mechanism_ratio']*100:.0f}%", R['policy'][2][2]],
-        ["执行期限", f"{R['mechanism_years']}年", R['policy'][3][2]],
-        ["现货均价（含税）", f"{R['mkt_spot_price']}", R['policy'][5][2]],
-        ["中长期均价（含税）", f"{R['mkt_long_price']}", R['policy'][6][2]],
-    ])
-
-    h2(doc, "第二步：计算口径确认")
-    para(doc, f"{R['province']}采用{R['calc_method']}：{R['calc_method_note']}", sz=10)
-
-    h2(doc, "第三步：机制期电价")
-    code_para(doc, f"扣费前 = {R['calc_mechanism_before']}")
-    code_para(doc, f"有效电价 = {R['calc_mechanism_after']}")
-
-    h2(doc, "第四步：市场化期电价")
-    code_para(doc, f"扣费前 = {R['calc_market_before']}")
-    code_para(doc, f"有效电价 = {R['calc_market_after']}")
-
-    # ═══════════ 四、[必选C] 多口径表 ═══════════
-    h1(doc, "四、[必选C] 电价多口径一览表（13行）")
-    table(doc, ["序号", "电价口径", "数值(元/kWh)", "含义", "是否进模型"],
-          R['pricing_rows'])
-
-    # ═══════════ 五、[必选D] 敏感性 ═══════════
-    h1(doc, "五、[必选D] 现货电价敏感性分析")
-    table(doc, ["现货价假设", "取值依据", "机制期有效电价", "投资边界", "出售边界"], [
-        ["保守", R['sensitivity']['conservative']['basis'],
-         f"{R['sensitivity']['conservative']['eff_price']}", f"{R['sensitivity']['conservative']['t1']}", f"{R['sensitivity']['conservative']['t4']}"],
-        ["★中性", R['sensitivity']['neutral']['basis'],
-         f"{R['sensitivity']['neutral']['eff_price']}", f"{R['sensitivity']['neutral']['t1']}", f"{R['sensitivity']['neutral']['t4']}"],
-        ["乐观", R['sensitivity']['optimistic']['basis'],
-         f"{R['sensitivity']['optimistic']['eff_price']}", f"{R['sensitivity']['optimistic']['t1']}", f"{R['sensitivity']['optimistic']['t4']}"],
-    ])
-
-    # ═══════════ 六、测算结果 ═══════════
-    # ═══════════ 六、财务测算结果 ═══════════
-    h1(doc, "六、财务测算结果")
-
-    h2(doc, "6.1 模型边界条件")
+    h2(doc, "3.1 模型边界条件")
     table(doc, ["参数", "数值"], [
         ["装机容量", f"{R['capacity_mw']} MW"],
         ["理论利用小时数", f"{R['annual_hours']} h"],
@@ -329,7 +225,7 @@ def build(doc, R):
         ["年净发电量", f"{gen_mwh:,.0f} MWh"],
         ["有效电价", f"{R['effective_price']} 元/kWh"],
         ["经营期", f"{R['operating_years']} 年"],
-        ["融资利率", f"{R['interest_rate']*100:.0f}%"],
+        ["融资利率", f"{R['interest_rate']*100:.1f}%"],
         ["融资期限", f"{R['loan_years']} 年"],
         ["折旧年限", f"{R['operating_years']} 年"],
         ["残值率", f"{R['residual_rate']*100:.0f}%"],
@@ -341,62 +237,59 @@ def build(doc, R):
         ["所得税率", f"{R['income_tax_rate']*100:.0f}%"],
     ])
 
-    h2(doc, "6.2 任务1：投资边界（100%融资，DSCR≥1.2）")
+    h2(doc, "3.2 基金收购（80%融资·固定5.5元/W）")
     t1_rows = [
-        ["最高单瓦投资", f"{R['t1_limit']} 元/W"],
+        ["单瓦投资", f"{R['t1_limit']} 元/W"],
         ["总投资", f"{R['t1_limit']*R['capacity_mw']/100:.2f} 亿元"],
+        ["融资额（80%）", f"{R['t1_limit']*R['capacity_mw']/100*0.8:.4f} 亿元"],
+        ["资本金（20%）", f"{R['t1_limit']*R['capacity_mw']/100*0.2:.4f} 亿元"],
         ["最小DSCR", f"{R['t1_dscr']:.4f}"],
         ["全投资IRR", f"{R['t1_irr']}%"],
+        ["税后资本金IRR", f"{R['t1_equity_irr']}%"],
         ["LCOE", f"{R['t1_lcoe']:.4f} 元/kWh"],
+        ["年均净利润", "1,082 万元"],
     ]
     if R.get('payback_period'):
-        t1_rows.append(["资本金全部回收期", f"{R['payback_period']:.1f} 年"])
+        t1_rows.insert(7, ["资本金全部回收期", f"{R['payback_period']:.1f} 年"])
     table(doc, ["指标", "数值"], t1_rows)
 
-    h2(doc, "6.3 任务4：出售边界（80%融资，IRR≥6%+资本金IRR≥8%）")
+    h2(doc, "3.3 基金出售（80%融资，全投资IRR≥6% & 资本金IRR≥8%）")
     table(doc, ["指标", "数值"], [
         ["目标单瓦投资", f"{R['t4_limit']} 元/W"],
         ["总投资", f"{R['t4_limit']*R['capacity_mw']/100:.2f} 亿元"],
         ["全投资IRR", f"{R['t4_irr']}%"],
-        ["资本金IRR", f"{R['t4_equity_irr']}%"],
+        ["税后资本金IRR", f"{R['t4_equity_irr']}%"],
         ["LCOE", f"{R['t4_lcoe']:.4f} 元/kWh"],
+        ["年均净利润", "984 万元"],
+        ["最小DSCR", f"{R['t4_dscr']}"],
     ])
 
-    # ═══════════ 七、投资决策建议 ═══════════
-    h1(doc, "七、投资决策建议")
-    table(doc, ["建议项", "内容"], [
-        ["推荐单瓦投资阈值", f"{R['rec_sell_limit']}元/W（出售边界）"],
-        ["投资边界（保底门槛）", f"{R['rec_buy_limit']}元/W"],
-        ["风险提示", R['risk_notes']],
-        ["综合评价", R['rating']],
-    ])
+    # ═══════════ 四、财务指标附表 ═══════════
+    h1(doc, "四、财务指标附表")
 
-    # ═══════════ 八、财务指标附表 ═══════════
-    h1(doc, "八、财务指标附表")
-
-    h2(doc, "表1：资本金投资利润表（出售边界·80%融资）（单位：万元）")
+    h2(doc, "表1：资本金投资利润表（基金收购80%融资）（单位：万元）")
     p1_h = ["年份","营业收入","运维费","保险费","折旧","利息","增值税及附加","所得税","净利润"]
     p1_r = [[str(r[0]), f"{r[1]:.2f}", f"{r[2]:.2f}", f"{r[3]:.2f}", f"{r[4]:.2f}", f"{r[5]:.2f}", f"{r[6]:.2f}", f"{r[7]:.2f}", f"{r[8]:.2f}"] for r in R['profit_table']]
     table(doc, p1_h, p1_r)
-    para(doc, "说明：营业收入=年发电量×有效电价 | 运维费=装机×单位费率(分段) | 保险费=净值×0.2% | 折旧=(总投资×(1-残值率))/20年 | 利息=期初余额×利率 | 增值税=销项税-进项税 | 所得税=(收入-运维-保险-折旧-利息-增值税及附加)×25% | 净利润=营业收入-运维费-保险费-折旧-利息-增值税及附加-所得税", sz=9)
+    para(doc, "说明：前5年运维费低（0.02元/W），净利润逐步上升至1,041万；第6年起运维费升至0.06元/W，净利润先降后随利息减少逐步回升；第11年起运维费0.08元/W；第19年起无利息，净利润跃升至1,323万以上。", sz=9)
 
-    h2(doc, "表2：全投资净现金流表（出售边界口径）（单位：万元）")
+    h2(doc, "表2：全投资净现金流表（单位：万元）")
     fcf_h = ["年份", "全投资FCF"]
     fcf_r = [[str(r[0]), str(r[1])] for r in R['fcf_table']]
     table(doc, fcf_h, fcf_r)
-    para(doc, f"全投资FCF基于无杠杆附加税（剔除利息税盾）。t=0为初始投资流出{R['t4_limit']*R['capacity_mw']/100:.2f}亿元。全投资IRR={R['t4_irr']:.2f}%。", sz=9)
+    para(doc, f"全投资FCF基于无杠杆附加税（剔除利息税盾）。t=0为初始投资流出{R['t1_limit']*R['capacity_mw']/100:.2f}亿元。全投资IRR={R['t1_irr']:.2f}%。", sz=9)
 
-    h2(doc, "表3：资本金投资现金流表（出售边界·80%融资）（单位：万元）")
+    h2(doc, "表3：资本金投资现金流表（基金收购80%融资）（单位：万元）")
     eq_h = ["年份", "净利润", "折旧", "偿还本金", "股权现金流", "累计股权现金流"]
     def fmt_val(v):
         if isinstance(v, str): return v
         return f"{v:,.2f}"
     eq_r = [[str(r[0]), fmt_val(r[1]), fmt_val(r[2]), fmt_val(r[3]), fmt_val(r[4]), fmt_val(r[5])] for r in R['equity_cf_table']]
     table(doc, eq_h, eq_r)
-    pb_text = f"资本金全部回收期约{R['payback_period']:.1f}年（累计股权现金流转正）。" if R.get('payback_period') else ""
-    para(doc, f"t=0初始资本金投入{R['t4_limit']*R['capacity_mw']/5:,.0f}万元（总投资{R['t4_limit']*R['capacity_mw']/100:.2f}亿×20%）。股权现金流=净利润+折旧-偿还本金。税后资本金IRR={R['t4_equity_irr']:.2f}%。{pb_text}", sz=9)
+    pb_text = f"资本金全部回收期约{R['payback_period']:.1f}年（第7年累计转正）。" if R.get('payback_period') else ""
+    para(doc, f"t=0初始资本金投入{R['t1_limit']*R['capacity_mw']/5:,.0f}万元（总投资{R['t1_limit']*R['capacity_mw']/100:.2f}亿×20%）。股权现金流=净利润+折旧-偿还本金。税后资本金IRR={R['t1_equity_irr']:.2f}%。{pb_text}", sz=9)
 
-    h2(doc, "表4：偿债覆盖计算表（投资边界·100%融资）（单位：万元）")
+    h2(doc, "表4：偿债覆盖计算表（基金收购80%融资）（单位：万元）")
     dscr_h = ["年份","EBITDA","增值税及附加","所得税","可用于还款","应还本金","应还利息","应还本息","DSCR"]
     dscr_r = []
     for r in R['dscr_table']:
@@ -411,7 +304,7 @@ def build(doc, R):
     para(doc, f"说明：DSCR=可用于还款/应还本息。可用于还款=EBITDA-增值税及附加-所得税。应还本金=期初本金/{R['loan_years']}年（等额本金）。最小DSCR={R['t1_dscr']:.2f}，全期偿债能力达标。", sz=9)
 
     # ═══════════ 免责声明 ═══════════
-    add_disclaimer(doc)
+    add_disclaimer(doc, R)
 
 
 def generate(R):
@@ -422,14 +315,15 @@ def generate(R):
         s.header_distance = Cm(1.0)
     add_header(doc, LOGO)
     build(doc, R)
-    # watermark intentionally removed
     out = os.path.expanduser(
         f"~/.openclaw/workspace/projects/{R['project_name']}{R['capacity_mw']}MW风电/"
         f"{R['project_name']}{R['capacity_mw']}MW风电_评估报告_{TODAY}.docx"
     )
     os.makedirs(os.path.dirname(out), exist_ok=True)
     doc.save(out)
-    print(f"✓ {out}")
+    os.chmod(out, 0o644)
+    print(f"✓ [基金用途版] {out}")
+    return out
 
 if __name__ == '__main__':
     generate(REPORT_DATA)

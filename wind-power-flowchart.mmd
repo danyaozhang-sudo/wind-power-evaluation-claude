@@ -1,0 +1,74 @@
+---
+title: 风电项目投资评估工作流
+---
+graph TB
+    subgraph 第零步["第零步：前置准备"]
+        A0[搜索Obsidian知识库<br/>只提取：所在地+装机容量<br/>禁止提取：电价/利用小时/投资概算]
+        A1[获取省级规划文件<br/>新能源规划 + 电网规划]
+    end
+
+    subgraph 第一步["第一步：项目信息 + 利用小时数"]
+        B1[获取项目基本信息<br/>所在地·容量·接入方案]
+        B2[理论可利用小时数<br/>搜索多源取低值]
+        B3[实际利用小时数校核<br/>搜索多源取低值]
+        B4[隐含限电率<br/>=1-实际/理论]
+    end
+
+    subgraph 第二步["第二步：电力市场数据搜索"]
+        C1[消纳能力分级判断<br/>消纳友好省 vs 消纳承压省]
+        C2[限电率搜索<br/>每类≥10来源]
+        C3[电价搜索<br/>中长协/现货/绿电<br/>每类≥10来源]
+        C4[机制电价竞价信息]
+        C5[数据交叉验证<br/>保守原则取低值]
+    end
+
+    subgraph 第三步["第三步：关键参数确定"]
+        D1[限电率估算<br/>三轨并行取最高值]
+        D11["轨道A：项目评估×区域调整"]
+        D12["轨道B：全省均值"]
+        D13["轨道C：隐含限电率"]
+        D2[电价策略<br/>场景一：不参与竞价<br/>场景二：参与竞价]
+        D3[财务参数<br/>20年·残值3%·利率4%]
+        D4[运维费/保险费<br/>分段计算]
+    end
+
+    subgraph 第四步["第四步：核心测算"]
+        E1[任务1：投资边界<br/>100%融资<br/>最小DSCR≥1.2]
+        E2[任务4：出售边界<br/>80%融资+20%资本金<br/>全投资IRR≥6%<br/>资本金IRR≥8%]
+        E3[迭代搜索<br/>行业单瓦投资参考]
+    end
+
+    subgraph 第五步["第五步：输出结果"]
+        F1[说明测算逻辑<br/>附数据来源]
+        F2[两个任务结果表格<br/>投资边界+出售边界]
+        F3[综合投资决策建议<br/>阈值·风险·市场评价]
+    end
+
+    subgraph 第六步["第六步：保存报告（双备份）"]
+        G1[生成Word版本<br/>python-docx]
+        G2["备份位置一<br/>projects/目录"]
+        G3["备份位置二<br/>Obsidian evaluations/"]
+        G4[YAML frontmatter<br/>invest_evaluation数据块]
+        G5[更新Obsidian实体页<br/>追加 tags+链接]
+    end
+
+    %% 主流程连接
+    A0 & A1 --> B1
+    B1 --> B2 --> B3 --> B4
+    B2 --> C1 --> C2
+    B3 --> C4
+    B4 --> C5
+    C1 --> C2 & C3 & C4 --> C5
+    C5 --> D1 & D2 & D3 & D4
+    D1 --> D11 & D12 & D13 --> D1
+    D1 & D2 & D3 & D4 --> E1 & E2
+    E1 & E2 --> E3 --> F1 --> F2 --> F3
+    F3 --> G1 --> G2 & G3
+    G1 --> G4 --> G5
+
+    %% 样式
+    classDef default fill:#1a237e,stroke:#3949ab,stroke-width:2px,color:#ffffff,font-size:13px;
+    classDef substep fill:#283593,stroke:#5c6bc0,stroke-width:1.5px,color:#e8eaf6,font-size:12px;
+    classDef highlight fill:#d32f2f,stroke:#f44336,stroke-width:2px,color:#ffffff,font-size:13px;
+    class A0,A1,B1,B2,B3,B4,C1,C2,C3,C4,C5,D1,D2,D3,D4,E1,E2,E3,F1,F2,F3,G1,G2,G3,G4,G5 default
+    class D11,D12,D13 substep

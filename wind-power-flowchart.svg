@@ -1,0 +1,337 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2800" font-family="'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a1628;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a2744;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1a73e8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4285f4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="step0" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#37474f" />
+      <stop offset="100%" style="stop-color:#546e7a" />
+    </linearGradient>
+    <linearGradient id="step1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1565c0" />
+      <stop offset="100%" style="stop-color:#1e88e5" />
+    </linearGradient>
+    <linearGradient id="step2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00838f" />
+      <stop offset="100%" style="stop-color:#00acc1" />
+    </linearGradient>
+    <linearGradient id="step3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2e7d32" />
+      <stop offset="100%" style="stop-color:#43a047" />
+    </linearGradient>
+    <linearGradient id="step4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e65100" />
+      <stop offset="100%" style="stop-color:#ef6c00" />
+    </linearGradient>
+    <linearGradient id="step5" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6a1b9a" />
+      <stop offset="100%" style="stop-color:#8e24aa" />
+    </linearGradient>
+    <linearGradient id="step6" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#b71c1c" />
+      <stop offset="100%" style="stop-color:#d32f2f" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="115%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#4285f4" flood-opacity="0.5"/>
+    </filter>
+    <marker id="arrowDown" markerWidth="10" markerHeight="8" refX="5" refY="4" orient="auto">
+      <polygon points="0,0 10,4 0,8" fill="#90a4ae"/>
+    </marker>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1600" height="2800" fill="url(#bg)" rx="0"/>
+
+  <!-- 标题 -->
+  <rect x="200" y="30" width="1200" height="70" rx="12" fill="url(#headerGrad)" filter="url(#glow)"/>
+  <text x="800" y="75" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold">🌬️ 风电项目投资评估工作流</text>
+  <text x="800" y="130" text-anchor="middle" fill="#90a4ae" font-size="14">硬性要求：DeepSeek v4 Pro + MAX思考模式 ｜ 每类数据≥10个来源交叉验证 ｜ 保守原则</text>
+
+  <!-- 引导竖线 -->
+  <line x1="800" y1="140" x2="800" y2="2680" stroke="#455a64" stroke-width="2" stroke-dasharray="6,4"/>
+
+  <!-- ==================== 第零步 ==================== -->
+  <g transform="translate(0,160)">
+    <rect x="50" y="0" width="1500" height="280" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step0)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step0)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第零步：前置准备</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">每次评估前必须执行，确保基础数据完整</text>
+
+    <!-- 卡片1 -->
+    <rect x="80" y="95" width="680" height="160" rx="10" fill="#37474f" opacity="0.9"/>
+    <text x="100" y="125" fill="#80cbc4" font-size="15" font-weight="bold">📖 搜索 Obsidian 知识库</text>
+    <text x="100" y="155" fill="#cfd8dc" font-size="13">✅ 可提取：项目所在地 · 装机容量 · 接入信息</text>
+    <text x="100" y="178" fill="#ffcdd2" font-size="13">🚫 禁止提取：①利用小时数 ②电价 ③投资概算</text>
+    <text x="100" y="201" fill="#cfd8dc" font-size="13">✅ 可提取：建设周期 · 外线距离 · 地形地貌</text>
+    <text x="100" y="224" fill="#90a4ae" font-size="12">目的：引导后续搜索方向，不做参数来源</text>
+
+    <!-- 箭头 -->
+    <line x1="770" y1="175" x2="810" y2="175" stroke="#90a4ae" stroke-width="2" marker-end="url(#arrowDown)"/>
+
+    <!-- 卡片2 -->
+    <rect x="830" y="95" width="690" height="160" rx="10" fill="#37474f" opacity="0.9"/>
+    <text x="850" y="125" fill="#80cbc4" font-size="15" font-weight="bold">📋 获取省级规划文件（新省份）</text>
+    <text x="850" y="155" fill="#cfd8dc" font-size="13">① 省级新能源规划：装机目标 · 配储要求</text>
+    <text x="850" y="178" fill="#cfd8dc" font-size="13">② 省级电网规划：外送通道 · 消纳 · 特高压</text>
+    <text x="850" y="201" fill="#90a4ae" font-size="12">→ 写入 Obsidian concepts/ 目录（6个月内有效）</text>
+    <text x="850" y="224" fill="#90a4ae" font-size="12">→ 已有则跳过，避免重复工作</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="448" x2="800" y2="470" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第一步 ==================== -->
+  <g transform="translate(0,480)">
+    <rect x="50" y="0" width="1500" height="340" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step1)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step1)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第一步：项目基本信息 + 利用小时数</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">用户提供或文件中提取，禁止从知识库取三类敏感数据</text>
+
+    <!-- 三列布局 -->
+    <rect x="80" y="95" width="440" height="220" rx="10" fill="#1565c0" opacity="0.85"/>
+    <text x="100" y="125" fill="#82b1ff" font-size="15" font-weight="bold">📌 项目基本信息</text>
+    <text x="100" y="155" fill="#e3f2fd" font-size="13">▸ 项目所在地（省份 · 城市）</text>
+    <text x="100" y="178" fill="#e3f2fd" font-size="13">▸ 装机容量（MW）</text>
+    <text x="100" y="201" fill="#e3f2fd" font-size="13">▸ 接入方案（可选）</text>
+    <text x="100" y="224" fill="#90caf9" font-size="12">来源：用户提供 / 文件提取 / 知识库</text>
+
+    <line x1="530" y1="200" x2="560" y2="200" stroke="#64b5f6" stroke-width="2" marker-end="url(#arrowDown)"/>
+
+    <rect x="580" y="95" width="440" height="220" rx="10" fill="#1976d2" opacity="0.85"/>
+    <text x="600" y="125" fill="#82b1ff" font-size="15" font-weight="bold">⚡ 理论可利用小时数</text>
+    <text x="600" y="155" fill="#e3f2fd" font-size="13">▸ 搜索 ≥10 个来源取低值</text>
+    <text x="600" y="178" fill="#e3f2fd" font-size="13">▸ 知识库取理论值（仅理论值）</text>
+    <text x="600" y="201" fill="#e3f2fd" font-size="13">▸ 两者取低值 → 输入财务模型</text>
+    <text x="600" y="228" fill="#ffcdd2" font-size="12">⚠ 此数据禁用知识库可研类报告</text>
+
+    <line x1="1030" y1="200" x2="1060" y2="200" stroke="#64b5f6" stroke-width="2" marker-end="url(#arrowDown)"/>
+
+    <rect x="1080" y="95" width="440" height="220" rx="10" fill="#1565c0" opacity="0.85"/>
+    <text x="1100" y="125" fill="#82b1ff" font-size="15" font-weight="bold">📊 实际利用小时数校核</text>
+    <text x="1100" y="155" fill="#e3f2fd" font-size="13">▸ 搜索 ≥10 来源取实际值</text>
+    <text x="1100" y="178" fill="#e3f2fd" font-size="13">▸ 知识库取实际值</text>
+    <text x="1100" y="201" fill="#e3f2fd" font-size="13">▸ 两者取低值</text>
+    <text x="1100" y="228" fill="#ffcdd2" font-size="12">⚠ 隐含限电率=1-实际/理论</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="828" x2="800" y2="850" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第二步 ==================== -->
+  <g transform="translate(0,860)">
+    <rect x="50" y="0" width="1500" height="340" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step2)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step2)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第二步：电力市场数据搜索</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">每类数据≥10个不同类型来源 ｜ 优先官方来源（国家能源局、省发改委、交易中心）</text>
+
+    <rect x="80" y="95" width="350" height="220" rx="10" fill="#00838f" opacity="0.85"/>
+    <text x="100" y="125" fill="#80deea" font-size="15" font-weight="bold">🌍 消纳能力分级</text>
+    <text x="100" y="155" fill="#e0f7fa" font-size="13">▸ 消纳友好省（近负荷）</text>
+    <text x="100" y="175" fill="#b2dfdb" font-size="12">河南/山东/江苏/广东等</text>
+    <text x="100" y="195" fill="#e0f7fa" font-size="13">▸ 消纳承压省（外送依赖）</text>
+    <text x="100" y="215" fill="#b2dfdb" font-size="12">甘肃/新疆/内蒙/陕西等</text>
+    <text x="100" y="240" fill="#80cbc4" font-size="12">⏳ 重点：外送特高压进展</text>
+    <text x="100" y="260" fill="#80cbc4" font-size="12">⚡ 省内区域差异显著</text>
+
+    <rect x="460" y="95" width="350" height="220" rx="10" fill="#00838f" opacity="0.85"/>
+    <text x="480" y="125" fill="#80deea" font-size="15" font-weight="bold">📡 限电率搜索</text>
+    <text x="480" y="155" fill="#e0f7fa" font-size="13">▸ 项目所在地弃风率</text>
+    <text x="480" y="178" fill="#e0f7fa" font-size="13">▸ 全国消纳监测预警中心</text>
+    <text x="480" y="201" fill="#e0f7fa" font-size="13">▸ 电网断面阻塞报告</text>
+    <text x="480" y="224" fill="#e0f7fa" font-size="13">▸ 风电消纳能力报告</text>
+    <text x="480" y="250" fill="#80cbc4" font-size="12">每类≥10来源，取高值保守</text>
+
+    <rect x="840" y="95" width="320" height="220" rx="10" fill="#00838f" opacity="0.85"/>
+    <text x="860" y="125" fill="#80deea" font-size="15" font-weight="bold">💰 电价搜索</text>
+    <text x="860" y="155" fill="#e0f7fa" font-size="13">▸ 中长期交易电价</text>
+    <text x="860" y="178" fill="#e0f7fa" font-size="13">▸ 现货市场电价</text>
+    <text x="860" y="201" fill="#e0f7fa" font-size="13">▸ 绿电交易电价</text>
+    <text x="860" y="228" fill="#ffcdd2" font-size="12">每类≥10来源</text>
+    <text x="860" y="248" fill="#ffcdd2" font-size="12">取保守值（较低电价）</text>
+
+    <rect x="1190" y="95" width="330" height="220" rx="10" fill="#00838f" opacity="0.85"/>
+    <text x="1210" y="125" fill="#80deea" font-size="15" font-weight="bold">🎯 机制电价竞价</text>
+    <text x="1210" y="155" fill="#e0f7fa" font-size="13">▸ 竞价成交价</text>
+    <text x="1210" y="178" fill="#e0f7fa" font-size="13">▸ 同类项目均价</text>
+    <text x="1210" y="201" fill="#e0f7fa" font-size="13">▸ 上网电价结果</text>
+    <text x="1210" y="250" fill="#80cbc4" font-size="12">CfD差价合约机制</text>
+  </g>
+
+  <!-- 数据交叉验证横条 -->
+  <g transform="translate(0,1210)">
+    <rect x="200" y="0" width="1200" height="50" rx="25" fill="#006064" filter="url(#shadow)"/>
+    <text x="800" y="30" text-anchor="middle" fill="#e0f7fa" font-size="15" font-weight="bold">🔄 数据交叉验证 — 存在较大差异时取保守值（低电价·高限电率·低利用小时）</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="1270" x2="800" y2="1295" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第三步 ==================== -->
+  <g transform="translate(0,1305)">
+    <rect x="50" y="0" width="1500" height="380" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step3)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step3)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第三步：关键参数确定</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">核心决策节点，直接影响测算结果</text>
+
+    <!-- 限电率三轨 -->
+    <rect x="80" y="95" width="710" height="265" rx="10" fill="#2e7d32" opacity="0.85"/>
+    <text x="100" y="125" fill="#a5d6a7" font-size="15" font-weight="bold">⚠ 限电率估算（三轨并行取最高值）</text>
+    
+    <rect x="100" y="140" width="220" height="100" rx="8" fill="#1b5e20" opacity="0.8"/>
+    <text x="115" y="163" fill="#81c784" font-size="13" font-weight="bold">轨道A：项目评估</text>
+    <text x="115" y="183" fill="#c8e6c9" font-size="11">基础三档（2-3%/4-6%/15-20%）</text>
+    <text x="115" y="200" fill="#c8e6c9" font-size="11">×省内区域调整系数（±15-30%）</text>
+    <text x="115" y="217" fill="#c8e6c9" font-size="11">例：酒泉18-20% / 陇南10-15%</text>
+
+    <rect x="340" y="140" width="220" height="100" rx="8" fill="#1b5e20" opacity="0.8"/>
+    <text x="355" y="163" fill="#81c784" font-size="13" font-weight="bold">轨道B：全省均值</text>
+    <text x="355" y="183" fill="#c8e6c9" font-size="11">搜索全省弃风率</text>
+    <text x="355" y="200" fill="#c8e6c9" font-size="11">≥10来源交叉验证</text>
+    <text x="355" y="217" fill="#c8e6c9" font-size="11">取高值（保守原则）</text>
+
+    <rect x="580" y="140" width="190" height="100" rx="8" fill="#1b5e20" opacity="0.8"/>
+    <text x="595" y="163" fill="#81c784" font-size="13" font-weight="bold">轨道C：隐含值</text>
+    <text x="595" y="183" fill="#c8e6c9" font-size="11">=1-实际小时/理论小时</text>
+    <text x="595" y="200" fill="#c8e6c9" font-size="11">交叉验证轨道B</text>
+
+    <text x="100" y="262" fill="#ffcdd2" font-size="13" font-weight="bold">→ 最终限电率 = max(轨道A, 轨道B, 轨道C)</text>
+    <text x="100" y="282" fill="#a5d6a7" font-size="12">轨道A若显著低于轨道B，可下调但幅度≤30%</text>
+    <text x="100" y="300" fill="#a5d6a7" font-size="12">所有取值均注明依据和来源</text>
+
+    <!-- 右侧两列 -->
+    <rect x="820" y="95" width="350" height="125" rx="10" fill="#2e7d32" opacity="0.85"/>
+    <text x="840" y="125" fill="#a5d6a7" font-size="15" font-weight="bold">💵 电价策略</text>
+    <text x="840" y="152" fill="#c8e6c9" font-size="13">场景一（不竞价）：中长协70%+现货30%+绿电</text>
+    <text x="840" y="175" fill="#c8e6c9" font-size="13">场景二（参与竞价）：全部电量按竞价均价</text>
+    <text x="840" y="198" fill="#ffcdd2" font-size="12">均扣除：两个细则考核0.015元/kWh</text>
+    <text x="840" y="215" fill="#ffcdd2" font-size="12">+ 市场费用分摊（结算电费×2%）</text>
+
+    <rect x="820" y="235" width="350" height="125" rx="10" fill="#2e7d32" opacity="0.85"/>
+    <text x="840" y="265" fill="#a5d6a7" font-size="15" font-weight="bold">📐 财务参数</text>
+    <text x="840" y="292" fill="#c8e6c9" font-size="13">经营期20年 / 折旧20年残值3%</text>
+    <text x="840" y="315" fill="#c8e6c9" font-size="13">利率4% / 融资18年等额本金</text>
+    <text x="840" y="338" fill="#c8e6c9" font-size="13">增值税13% / 附加12% / 所得税25%</text>
+
+    <rect x="1200" y="95" width="320" height="265" rx="10" fill="#2e7d32" opacity="0.85"/>
+    <text x="1220" y="125" fill="#a5d6a7" font-size="15" font-weight="bold">⚙️ 运维费与保险费</text>
+    <text x="1220" y="155" fill="#c8e6c9" font-size="13">运维费分段：</text>
+    <text x="1220" y="178" fill="#c8e6c9" font-size="12">1-5年  0.02元/W·年</text>
+    <text x="1220" y="198" fill="#c8e6c9" font-size="12">6-10年 0.06元/W·年</text>
+    <text x="1220" y="218" fill="#c8e6c9" font-size="12">11-20年 0.08元/W·年</text>
+    <text x="1220" y="248" fill="#c8e6c9" font-size="13">保险费：净值×0.2%</text>
+    <text x="1220" y="275" fill="#c8e6c9" font-size="13">融资假设：</text>
+    <text x="1220" y="298" fill="#c8e6c9" font-size="12">任务1：100%融资</text>
+    <text x="1220" y="318" fill="#c8e6c9" font-size="12">任务4：80%融资+20%资本金</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="1693" x2="800" y2="1718" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第四步 ==================== -->
+  <g transform="translate(0,1728)">
+    <rect x="50" y="0" width="1500" height="300" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step4)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step4)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第四步：核心测算（financial_model.py）</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">迭代计算至小数点后4位 ｜ 同步搜索行业单瓦投资作为迭代参考</text>
+
+    <!-- 任务1 -->
+    <rect x="100" y="95" width="620" height="180" rx="12" fill="#e65100" opacity="0.85"/>
+    <text x="120" y="128" fill="#ffcc80" font-size="17" font-weight="bold">📊 任务1：投资边界</text>
+    <rect x="120" y="140" width="200" height="28" rx="14" fill="#bf360c"/>
+    <text x="220" y="160" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">100%融资 + DSCR≥1.2</text>
+    <text x="120" y="195" fill="#ffe0b2" font-size="13">约束：经营期最小 DSCR ≥ 1.2</text>
+    <text x="120" y="218" fill="#ffe0b2" font-size="13">输出：最高单瓦投资 · 度电成本 · IRR · 现金流</text>
+    <text x="120" y="241" fill="#ffe0b2" font-size="13">目的：确定项目融资的保底门槛</text>
+    <text x="120" y="262" fill="#ffcc80" font-size="12">DSCR = EBITDA - 税 - 增值税 / 本息</text>
+
+    <!-- 任务4 -->
+    <rect x="800" y="95" width="620" height="180" rx="12" fill="#ef6c00" opacity="0.85"/>
+    <text x="820" y="128" fill="#ffcc80" font-size="17" font-weight="bold">📈 任务4：出售边界</text>
+    <rect x="820" y="140" width="200" height="28" rx="14" fill="#bf360c"/>
+    <text x="920" y="160" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">80%融资 + 资本金IRR≥8%</text>
+    <text x="820" y="195" fill="#ffe0b2" font-size="13">约束：全投资IRR ≥ 6% + 资本金IRR ≥ 8%</text>
+    <text x="820" y="218" fill="#ffe0b2" font-size="13">输出：目标单瓦投资 · 度电成本 · IRR · 现金流</text>
+    <text x="820" y="241" fill="#ffe0b2" font-size="13">目的：确定项目可出售的价值上限</text>
+    <text x="820" y="262" fill="#ffcc80" font-size="12">股权现金流 = 净利润 + 折旧 - 偿还本金</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="2036" x2="800" y2="2058" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第五步 ==================== -->
+  <g transform="translate(0,2068)">
+    <rect x="50" y="0" width="1500" height="280" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step5)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step5)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第五步：输出结果</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">所有数据注明来源</text>
+
+    <rect x="80" y="95" width="340" height="160" rx="10" fill="#6a1b9a" opacity="0.85"/>
+    <text x="100" y="125" fill="#ce93d8" font-size="15" font-weight="bold">📝 说明测算逻辑</text>
+    <text x="100" y="155" fill="#e1bee7" font-size="13">▸ 限电率估算依据</text>
+    <text x="100" y="178" fill="#e1bee7" font-size="13">▸ 电价策略及具体电价</text>
+    <text x="100" y="201" fill="#e1bee7" font-size="13">▸ 消纳能力 / 断面阻塞</text>
+    <text x="100" y="224" fill="#e1bee7" font-size="13">▸ 财务假设 / 迭代方法</text>
+
+    <rect x="460" y="95" width="340" height="160" rx="10" fill="#6a1b9a" opacity="0.85"/>
+    <text x="480" y="125" fill="#ce93d8" font-size="15" font-weight="bold">📊 结果表格</text>
+    <text x="480" y="155" fill="#e1bee7" font-size="13">▸ 任务1：投资边界指标</text>
+    <text x="480" y="178" fill="#e1bee7" font-size="13">▸ 任务4：出售边界指标</text>
+    <text x="480" y="201" fill="#e1bee7" font-size="13">▸ 每年净利润表（20年）</text>
+    <text x="480" y="224" fill="#e1bee7" font-size="13">▸ 每年现金流量表（20年）</text>
+
+    <rect x="840" y="95" width="680" height="160" rx="10" fill="#6a1b9a" opacity="0.85"/>
+    <text x="860" y="125" fill="#ce93d8" font-size="15" font-weight="bold">🎯 综合投资决策建议</text>
+    <text x="860" y="155" fill="#e1bee7" font-size="13">① 推荐单瓦投资阈值（同时满足DSCR和收益率）</text>
+    <text x="860" y="178" fill="#e1bee7" font-size="13">② 投资边界 = 100%融资 DSCR≥1.2 → 融资保底门槛</text>
+    <text x="860" y="201" fill="#e1bee7" font-size="13">③ 出售边界 = 80%融资 IRR达标 → 出售价值上限</text>
+    <text x="860" y="224" fill="#e1bee7" font-size="13">④ 风险提示：限电率/电价/建设成本波动</text>
+    <text x="860" y="245" fill="#e1bee7" font-size="13">⑤ 项目所在地电力市场综合评价</text>
+  </g>
+
+  <!-- 连接箭头 -->
+  <line x1="800" y1="2356" x2="800" y2="2378" stroke="#4db6ac" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- ==================== 第六步 ==================== -->
+  <g transform="translate(0,2388)">
+    <rect x="50" y="0" width="1500" height="280" rx="16" fill="#263238" opacity="0.6" filter="url(#shadow)"/>
+    <rect x="50" y="0" width="1500" height="44" rx="16" fill="url(#step6)"/>
+    <rect x="50" y="28" width="1500" height="16" fill="url(#step6)"/>
+    <text x="70" y="30" fill="#fff" font-size="18" font-weight="bold">第六步：保存报告（双备份）</text>
+    <text x="70" y="70" fill="#b0bec5" font-size="13">不再推送飞书 ｜ 双处存储互为备份</text>
+
+    <rect x="80" y="95" width="440" height="160" rx="10" fill="#c62828" opacity="0.85"/>
+    <text x="100" y="125" fill="#ef9a9a" font-size="15" font-weight="bold">📄 生成 Word 版本</text>
+    <text x="100" y="155" fill="#ffcdd2" font-size="13">▸ python-docx 输出 .docx</text>
+    <text x="100" y="178" fill="#ffcdd2" font-size="13">▸ 黑体深蓝标题 + 仿宋正文</text>
+    <text x="100" y="201" fill="#ffcdd2" font-size="13">▸ 深蓝白字表头表格</text>
+    <text x="100" y="224" fill="#ffcdd2" font-size="13">▸ Jano Power Logo 页眉居右</text>
+
+    <rect x="560" y="95" width="440" height="160" rx="10" fill="#c62828" opacity="0.85"/>
+    <text x="580" y="125" fill="#ef9a9a" font-size="15" font-weight="bold">💾 双向备份存储</text>
+    <text x="580" y="155" fill="#ffcdd2" font-size="13">▸ projects/{项目名}/ 工作目录</text>
+    <text x="580" y="178" fill="#ffcdd2" font-size="13">▸ Obsidian evaluations/ 知识库</text>
+    <text x="580" y="201" fill="#ffcdd2" font-size="13">▸ Markdown + Word 双版本</text>
+
+    <rect x="1040" y="95" width="480" height="160" rx="10" fill="#c62828" opacity="0.85"/>
+    <text x="1060" y="125" fill="#ef9a9a" font-size="15" font-weight="bold">🏷️ YAML + 实体页更新</text>
+    <text x="1060" y="155" fill="#ffcdd2" font-size="13">▸ Markdown 头部 invest_evaluation 数据块</text>
+    <text x="1060" y="178" fill="#ffcdd2" font-size="13">▸ 含 effective_price/t1_limit/t4_limit 等</text>
+    <text x="1060" y="201" fill="#ffcdd2" font-size="13">▸ Obsidian 实体页追加 tags + 报告链接</text>
+    <text x="1060" y="224" fill="#ffcdd2" font-size="13">▸ tags 追加「投资评估-v1」</text>
+  </g>
+
+</svg>
