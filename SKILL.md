@@ -700,31 +700,64 @@ doc.close()
 
 ### 6.1 生成 Word 版本（先做）
 
-**使用封装脚本**（根据用户选择的输出模式）：
+**使用封装脚本**（根据用户选择的输出模式，**输出前必须先询问**）：
 
 | 模式 | 脚本 | 说明 |
 |:---:|:-----|:-----|
 | 选项一 | `scripts/gen_report_docx.py` | 完整版（必选B/C/D + 投资决策建议） |
 | 选项二 | `scripts/gen_report_docx_fund.py` | 基金用途精简版（跳过B/C/D和建议） |
 
-#### 🔴 Word 输出前自检清单（缺一不可）
+> 询问格式：`报告要按选项一（完整版·投资评估）还是选项二（精简版·基金用途）输出？`
 
-| 检查项 | 说明 |
-|:------|:----|
-| ✅ 江能 Logo 页眉 | 2cm 宽居右，文件路径 `~/.hermes/skills/openclaw-imports/wind-power-analysis/assets/jianeng_logo_header.png` |
-| ✅ 标题含品牌 | "江能能源 · {项目名}100MW风电项目" |
-| ✅ 免责声明 | 完整八段法律免责（见下方模板） |
-| ✅ 深蓝标题 | #1B3A5C 黑体 13-16pt |
-| ✅ 仿宋正文 | 11pt |
-| ✅ 深蓝白字表头 | 表头行背景 #1B3A5C 白字 |
+---
 
-#### Logo 页眉代码
+### 📐 Word 固化规范（每次输出强制执行）
+
+#### 1. 页面布局
+
+| 参数 | 数值 |
+|:------|:----:|
+| 纸张 | A4 (21cm × 29.7cm) |
+| 上边距 | 2.5cm |
+| 下边距 | 2.2cm |
+| 左边距 | 2.5cm |
+| 右边距 | 2.5cm |
+| 页眉顶距 | 1.0cm |
+| 页码 | 不标注页码 |
+
+#### 2. 字体层级
+
+| 层级 | 字体 | 字号 | 颜色 | 加粗 |
+|:----|:----|:----:|:----:|:----:|
+| 文档标题（H1） | 黑体 | 15pt | #1B3A5C 深蓝 | ✅ |
+| 章节标题（H2） | 黑体 | 13pt | #1B3A5C 深蓝 | ✅ |
+| 小节标题（H3） | 黑体 | 11pt | #1B3A5C 深蓝 | ✅ |
+| 正文 | 仿宋 | 11pt | 黑色 | ❌ |
+| 表格表头 | 黑体 | 9pt | #FFFFFF 白色，背景 #1B3A5C | ✅ |
+| 表格内容 | 仿宋 | 9pt | 黑色 | ❌ |
+| 代码块 | Courier New | 9pt | 黑色 | ❌ |
+
+#### 3. 文件命名
+
+```
+{项目名}_{容量}MW风电项目投资评估报告_{YYYYMMDD}.docx
+```
+
+示例：`天津蓟州西龙虎峪镇60MW风电项目投资评估报告_20260522.docx`
+
+#### 4. 江能 Logo 页眉
+
+- **位置**：每页页眉，右上角
+- **大小**：宽度 2cm（等比缩放）
+- **Logo 文件路径**：`~/.openclaw/workspace/skills/wind-power-analysis/assets/jianeng_logo_header.png`
+
+Logo 页眉代码（固化于 gen_report_docx.py）：
 
 ```python
 from docx.shared import Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-LOGO = os.path.expanduser("~/.hermes/skills/openclaw-imports/wind-power-analysis/assets/jianeng_logo_header.png")
+LOGO = os.path.expanduser("~/.openclaw/workspace/skills/wind-power-analysis/assets/jianeng_logo_header.png")
 
 for section in doc.sections:
     header = section.header
@@ -735,27 +768,77 @@ for section in doc.sections:
     run.add_picture(LOGO, width=Cm(2))
 ```
 
-#### 免责声明模板
+#### 5. 表格样式
+
+- **表头行**：深蓝背景 #1B3A5C，白字 #FFFFFF，黑体 9pt，居中对齐
+- **数据行**：仿宋 9pt，居中对齐，交替行底色（白色/浅灰#F2F2F2）
+- **边框**：Table Grid（全表格边框）
+
+#### 6. 免责声明模板（固化为七段，一字不改）
 
 ```
 本报告由江能研究院（基于 Claude Opus 大语言模型辅助）生成，仅供项目投资决策参考，不构成任何形式的投资建议或承诺。
+
 报告中所引用的电力市场数据均来自公开渠道，部分电价参数在缺乏直接交易数据的情况下采用保守假设推算，可能与实际成交价格存在偏差。
+
 实际项目投资决策应结合以下因素综合判断：
 ① 场址实测测风数据（至少一个完整年度）；② 电网接入批复及送出工程条件；③ EPC 招标实际报价；④ 项目所在地最新的机制电价竞价结果；⑤ 所在省电力交易中心公布的全年现货与中长期交易结算数据。
+
 本报告中的财务模型基于特定假设（融资利率 4%、经营期 20 年、等额本金还款等），不同融资结构、利率环境及政策变化可能导致测算结果显著偏离。
+
 报告中的"投资边界"和"出售边界"为理论测算阈值，不代表项目实际可实现的交易价格或融资条件。
+
 江能能源及报告编制方不对因使用本报告而产生的任何直接或间接损失承担责任。未经授权，不得转载或用于商业用途。
+```
+
+#### 7. 报告标题格式
+
+```
+江能能源 · {项目名}{容量}MW风电项目投资评估报告
+```
+
+示例：`江能能源 · 天津蓟州西龙虎峪镇60MW风电项目投资评估报告`
+
+---
+
+#### 🔴 Word 输出前自检清单（缺一不可）
+
+输出前逐项检查，任何一项不通过则停止输出：
+
+```
+[ ] 1. 江能 Logo 页眉 — 2cm宽居右上角
+    路径：~/.openclaw/workspace/skills/wind-power-analysis/assets/jianeng_logo_header.png
+[ ] 2. 标题含品牌 — "江能能源 · {项目名}{容量}MW风电项目"
+[ ] 3. 文件命名 — "{项目名}_{容量}MW风电项目投资评估报告_{YYYYMMDD}.docx"
+[ ] 4. 页面布局 — A4，上2.5cm/下2.2cm/左右2.5cm边距
+[ ] 5. 字体规范 — H1黑体15pt深蓝 / H2黑体13pt深蓝 / 正文仿宋11pt
+[ ] 6. 表格样式 — 表头深蓝背景#1B3A5C白字9pt / 数据行仿宋9pt
+[ ] 7. 免责声明 — 完整七段，一字不改
 ```
 
 #### 运行方式
 
-⚠️ **python-docx 环境陷阱**：`execute_code` sandbox 和 Hermes venv 的 Python 均未安装 python-docx。在 macOS 上需使用系统级 `/opt/homebrew/bin/python3`（如已 `pip install --break-system-packages python-docx`）。脚本写文件落地后用 terminal 调用：
+⚠️ **python-docx 环境陷阱**：sandbox Python 未安装 python-docx。需使用系统级 `/opt/homebrew/bin/python3`（已 `pip install --break-system-packages python-docx`）。脚本写文件落地后用 terminal 调用：
 
 ```bash
 /opt/homebrew/bin/python3 /tmp/gen_report_docx.py
 ```
 
 完整可运行脚本见 `scripts/gen_report_docx.py`。
+
+---
+
+#### 🔴 [必选内容防跳过门禁] 最后确认
+
+输出 Word 前，**必须**再确认报告正文**同时满足**以下四项（与第5节 [必选A]-[必选D] 一致）：
+
+[必选A] ✅ 10项电价参数全部附带政策依据和URL溯源？
+[必选B] ✅ 五步法电价推导表完整展示（从原始参数到财务输入）？
+[必选C] ✅ 13行多口径电价一览表（四种电口径×两种电量口径+5个派生口径）？
+[必选D] ✅ 三情景敏感性分析（基准/乐观/悲观）？
+
+四项缺一不可。缺少任何一项 → 停止输出，补齐后再发。
+好哥哥对跳过报告结构的容忍度为**零**。
 
 ### 6.2 双备份保存
 
