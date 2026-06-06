@@ -1,8 +1,13 @@
 ---
 name: wind-power-evaluation-claude
-description: 风电项目投资评估。适用场景：用户要求评估风电项目或上传项目基本信息时；需综合搜索电力市场数据（限电率、电价、竞价成交价）编制财务假设；执行2任务财务测算（投资边界/出售边界）；输出投资决策阈值及评估报告。
+version: 2.0
+description: 风电项目投资评估（轻量化财务测算技能）。适用场景：①独立使用——用户要求评估风电项目或上传项目基本信息时，执行完整测算流程；②作为子技能——被 investment-evaluation 调用，提供电价分析、限电率评估、财务模型计算等核心数据。两种模式下均需通过 Tavily API 搜索市场数据，禁止使用浏览器。v2.0 新增：Word报告格式固化、双风格PPT输出（投行研报+路演）、所有输出文件自动同步 Obsidian wiki/topics/evaluations/。
 ---
 
+> **角色说明**：本技能支持两种运行模式：
+> - **独立模式**：作为完整的风电评估技能独立运行，输出 Markdown + Word 报告
+> - **子技能模式**：被 `investment-evaluation` 在 Phase 2 调用，仅执行财务测算部分，将结果（电价、限电率、IRR/DSCR 等）传递给主技能用于后续的风险评估、合作方尽调、PPT 生成等环节
+>
 > **硬性要求①**：执行本技能前，确认当前会话使用 `deepseek-v4-pro` 模型 + 思考强度 `max`（用户可用 `/model deepseek-v4-pro` 和 `/reasoning xhigh` 切换）。评估全程不得使用其他模型。如发现模型不对，先提示用户切换再继续。
 >
 > **硬性要求②（🔴 铁律）**：**禁止使用浏览器搜索**。所有市场数据（电价、限电率、利用小时数、规划文件等）的搜索**只能通过 Tavily API**（`curl -s https://api.tavily.com/search`）。不得使用 `browser` 工具访问微信文章、北极星风电网、cpnn、ne21 等网站。Tavily API Key：`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`。每类搜索不少于10个关键词，每次调用 `search_depth=advanced, max_results=8~10`。微信文章可由 Tavily 间接抓取无需直接打开。
@@ -840,20 +845,45 @@ for section in doc.sections:
 四项缺一不可。缺少任何一项 → 停止输出，补齐后再发。
 好哥哥对跳过报告结构的容忍度为**零**。
 
-### 6.2 双备份保存
+### 6.2 双备份保存（报告 + PPT 同步到 Obsidian）
+
+> ⚠️ **硬性规则**：每次评估生成的**所有**文件（Markdown、Word、PPT）都必须双备份——`projects/` + Obsidian `wiki/topics/evaluations/`。PPT 文件不可遗漏。
 
 **位置一**（projects/ 目录）：
 ```
 {workspace}/projects/{项目名}/
     {项目名}_评估报告_{YYYYMMDD}.md
     {项目名}_评估报告_{YYYYMMDD}.docx
+    ppt/
+        {项目名}_投行研报.pptx
+        {项目名}_路演.pptx
 ```
 
-**位置二**（Obsidian 知识库）：
+**位置二**（Obsidian 知识库 `wiki/topics/evaluations/`）：
 ```
-{obsidian_path}/topics/evaluations/{项目名}/
+{obsidian_path}/wiki/topics/evaluations/{项目名}/
     {项目名}_评估报告_{YYYYMMDD}.md
     {项目名}_评估报告_{YYYYMMDD}.docx
+    {项目名}_投行研报.pptx
+    {项目名}_路演.pptx
+```
+
+**同步命令**（生成后立即执行）：
+```bash
+# 创建 Obsidian 评估目录
+mkdir -p "{obsidian_path}/wiki/topics/evaluations/{项目名}"
+
+# 复制报告文件
+cp "{workspace}/projects/{项目名}/{项目名}_评估报告_{YYYYMMDD}.md" \
+   "{obsidian_path}/wiki/topics/evaluations/{项目名}/"
+cp "{workspace}/projects/{项目名}/{项目名}_评估报告_{YYYYMMDD}.docx" \
+   "{obsidian_path}/wiki/topics/evaluations/{项目名}/"
+
+# 复制 PPT 文件（如果已生成）
+cp "{workspace}/projects/{项目名}/ppt/{项目名}_投行研报.pptx" \
+   "{obsidian_path}/wiki/topics/evaluations/{项目名}/" 2>/dev/null || true
+cp "{workspace}/projects/{项目名}/ppt/{项目名}_路演.pptx" \
+   "{obsidian_path}/wiki/topics/evaluations/{项目名}/" 2>/dev/null || true
 ```
 
 参考 Markdown 报告模板见 `references/report_template.md`。
@@ -894,11 +924,16 @@ invest_evaluation:
 ### 6.4 更新 Obsidian 实体页
 
 报告生成后，在该项目对应的 Obsidian 实体页（如 `entities/{项目名}.md`）中：
-1. 在 frontmatter 的 `tags` 中追加 `投资评估-v1`
+1. 在 frontmatter 的 `tags` 中追加 `投资评估-v{版本号}`
 2. 如已有 `invest_evaluation` 数据块，更新版本号
-3. 在正文末尾追加一行：
+3. 在正文末尾追加以下嵌入引用（含所有生成文件）：
    ```
-   ![[topics/evaluations/{项目名}/{项目名}_评估报告_{YYYYMMDD}]]
+   ## 评估报告
+   - ![[topics/evaluations/{项目名}/{项目名}_评估报告_{YYYYMMDD}]]
+   
+   ## PPT 演示
+   - [[topics/evaluations/{项目名}/{项目名}_投行研报.pptx|投行研报版]]
+   - [[topics/evaluations/{项目名}/{项目名}_路演.pptx|路演版]]
    ```
 
 ### 6.5 推送飞书消息预览
